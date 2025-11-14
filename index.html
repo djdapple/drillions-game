@@ -2,29 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DRILLIONS – BLUE NEBULA EDITION</title>
+  <title>DRILLIONS – SAFE MODE</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #000;
-    }
-    #gameCanvas {
-      width: 100vw;
-      height: 100vh;
-      display: block;
-      background: #000;
-      touch-action: none;
-    }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+    #gameCanvas { width: 100vw; height: 100vh; display: block; touch-action: none; }
     .hud {
       position: fixed;
       top: 16px;
       left: 16px;
       font-family: system-ui, sans-serif;
-      color: #ffc978;
-      text-shadow: 0 0 6px #ffae3f;
+      color: #ffd88a;
+      text-shadow: 0 0 4px #ffae3f;
       font-size: 15px;
       z-index: 10;
     }
@@ -33,13 +22,13 @@
 <body>
 
 <div class="hud">
-  <div>MODE: <strong>DRILLIONS BLUE NEBULA</strong></div>
-  <div>SCORE: <span id="scoreValue">0</span></div>
+  <div>SAFE MODE: RUNNING</div>
 </div>
 
 <canvas id="gameCanvas"></canvas>
 
 <script>
+// Core setup
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
@@ -47,380 +36,99 @@ let W, H;
 function resize() {
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
-  initStars();
 }
 resize();
 window.addEventListener("resize", resize);
 
-let score = 0;
-const scoreEl = document.getElementById("scoreValue");
+// Load player logo
+const logo = new Image();
+logo.src = "drillions-pixel-logo.png";
+let logoReady = false;
+logo.onload = () => logoReady = true;
 
-// main pixel logo
-const logoImg = new Image();
-logoImg.src = "drillions-pixel-logo.png";
-let logoLoaded = false;
-logoImg.onload = () => logoLoaded = true;
-
-// chrome background logo
-const bgLogo = new Image();
-bgLogo.src = "drillions-bg.png";
-let bgLoaded = false;
-bgLogo.onload = () => bgLoaded = true;
-
-// player movement
+// Player
 const player = {
-  x: 200,
-  y: 200,
+  x: 150,
+  y: 150,
   w: 300,
   h: 150,
-  vx: 6,
-  vy: 4.5,
-  minSpeed: 4.5,
-  maxSpeed: 13.5,
-  drag: 0.90,
-  tapAccel: 3.2
+  vx: 5,
+  vy: 4,
+  drag: 0.92,
+  tapAccel: 3,
+  minSpeed: 4,
+  maxSpeed: 13
 };
 
-// ghost trail
-const ghostTrail = [];
-const MAX_GHOSTS = 6;
-
-// chrome sparks
-const particles = [];
-const MAX_PARTICLES = 160;
-
-// parallax starfields
-let farStars = [];
-let midStars = [];
-let nearStars = [];
-let nebulaTime = 0;
-
-function initStars() {
-  const makeStars = (count, sizeMin, sizeMax, alphaMin, alphaMax) => {
-    const arr = [];
-    for (let i = 0; i < count; i++) {
-      arr.push({
-        x: Math.random() * W,
-        y: Math.random() * H,
-        size: sizeMin + Math.random() * (sizeMax - sizeMin),
-        alpha: alphaMin + Math.random() * (alphaMax - alphaMin)
-      });
-    }
-    return arr;
-  };
-
-  farStars  = makeStars(60, 0.5, 1.2, 0.05, 0.18);
-  midStars  = makeStars(45, 1.0, 1.8, 0.10, 0.28);
-  nearStars = makeStars(30, 1.5, 3.0, 0.18, 0.4);
-}
-
-// ------------------------
-// UPDATE PLAYER
-// ------------------------
+// Movement + physics
 function updatePlayer() {
+  // drag
   player.vx *= player.drag;
   player.vy *= player.drag;
 
-  let speed = Math.sqrt(player.vx * player.vx + player.vy * player.vy);
+  let speed = Math.sqrt(player.vx ** 2 + player.vy ** 2);
 
+  // enforce minimum speed
   if (speed < player.minSpeed) {
-    if (speed > 0.01) {
+    if (speed > 0.1) {
       const f = player.minSpeed / speed;
       player.vx *= f;
       player.vy *= f;
-    } else {
-      player.vx = player.minSpeed;
-      player.vy = 0;
     }
   }
 
+  // enforce max speed
   if (speed > player.maxSpeed) {
     const f = player.maxSpeed / speed;
     player.vx *= f;
     player.vy *= f;
   }
 
+  // apply movement
   player.x += player.vx;
   player.y += player.vy;
 
-  ghostTrail.unshift({
-    x: player.x + player.w / 2,
-    y: player.y + player.h / 2
-  });
-  if (ghostTrail.length > MAX_GHOSTS) ghostTrail.pop();
-
-  let hitX = false, hitY = false;
-
-  if (player.x <= 0) { player.x = 0; player.vx *= -1; hitX = true; }
-  if (player.x + player.w >= W) { player.x = W - player.w; player.vx *= -1; hitX = true; }
-  if (player.y <= 0) { player.y = 0; player.vy *= -1; hitY = true; }
-  if (player.y + player.h >= H) { player.y = H - player.h; player.vy *= -1; hitY = true; }
-
-  if (hitX || hitY) {
-    score += 10;
-    spawnBurstSparks();
+  // bounce
+  if (player.x <= 0 || player.x + player.w >= W) {
+    player.vx *= -1;
+  }
+  if (player.y <= 0 || player.y + player.h >= H) {
+    player.vy *= -1;
   }
 
-  const COR = 50;
-  if (hitX && hitY) {
-    const corner =
-      (player.x < COR && player.y < COR) ||
-      (player.x + player.w > W - COR && player.y < COR) ||
-      (player.x < COR && player.y + player.h > H - COR) ||
-      (player.x + player.w > W - COR && player.y + player.h > H - COR);
-    if (corner) {
-      score += 100;
-      spawnBurstSparks(1.5);
-    }
-  }
-
-  scoreEl.textContent = score;
-
-  spawnTrailSparks();
+  // clamp to screen
+  if (player.x < 0) player.x = 0;
+  if (player.y < 0) player.y = 0;
+  if (player.x + player.w > W) player.x = W - player.w;
+  if (player.y + player.h > H) player.y = H - player.h;
 }
 
-// ------------------------
-// STARFIELD / NEBULA UPDATE
-// ------------------------
-function updateParallax() {
-  nebulaTime += 0.0025;
-
-  const vx = player.vx;
-  const vy = player.vy;
-
-  const moveStars = (arr, factor) => {
-    for (const s of arr) {
-      s.x -= vx * factor * 0.02;
-      s.y -= vy * factor * 0.02;
-
-      if (s.x < 0) s.x += W;
-      if (s.x > W) s.x -= W;
-      if (s.y < 0) s.y += H;
-      if (s.y > H) s.y -= H;
-    }
-  };
-
-  moveStars(farStars, 0.4);
-  moveStars(midStars, 0.7);
-  moveStars(nearStars, 1.0);
-}
-
-// ------------------------
-// PARTICLES (CHROME SPARKS)
-// ------------------------
-function spawnTrailSparks() {
-  const speed = Math.sqrt(player.vx * player.vx + player.vy * player.vy);
-  const intensity = Math.min(1, speed / player.maxSpeed);
-  const count = 1 + Math.floor(intensity * 2);
-
-  const cx = player.x + player.w / 2;
-  const cy = player.y + player.h / 2;
-
-  for (let i = 0; i < count; i++) {
-    if (particles.length >= MAX_PARTICLES) break;
-    const angle = Math.random() * Math.PI * 2;
-    const speedFactor = 0.5 + Math.random() * 1.2;
-
-    particles.push({
-      x: cx,
-      y: cy,
-      vx: Math.cos(angle) * speedFactor,
-      vy: Math.sin(angle) * speedFactor,
-      life: 40 + Math.random() * 20,
-      alpha: 0.35 + Math.random() * 0.25,
-      size: 2 + Math.random() * 3,
-      tint: Math.random() < 0.5 ? "cool" : "warm"
-    });
-  }
-}
-
-function spawnBurstSparks(mult = 1) {
-  const cx = player.x + player.w / 2;
-  const cy = player.y + player.h / 2;
-  const baseCount = 22;
-  const total = Math.floor(baseCount * mult);
-
-  for (let i = 0; i < total; i++) {
-    if (particles.length >= MAX_PARTICLES) break;
-
-    const angle = Math.random() * Math.PI * 2;
-    const speedFactor = 2 + Math.random() * 3;
-
-    particles.push({
-      x: cx,
-      y: cy,
-      vx: Math.cos(angle) * speedFactor,
-      vy: Math.sin(angle) * speedFactor,
-      life: 30 + Math.random() * 30,
-      alpha: 0.5 + Math.random() * 0.3,
-      size: 3 + Math.random() * 4,
-      tint: Math.random() < 0.6 ? "cool" : "warm"
-    });
-  }
-}
-
-function updateParticles() {
-  for (let i = particles.length - 1; i >= 0; i--) {
-    const p = particles[i];
-    p.x += p.vx;
-    p.y += p.vy;
-    p.life -= 1;
-    p.alpha *= 0.96;
-
-    if (p.life <= 0 || p.alpha <= 0.02) {
-      particles.splice(i, 1);
-    }
-  }
-}
-
-// ------------------------
-// DRAW FUNCTIONS
-// ------------------------
-function drawGalaxy() {
-  // base black fill
+// Draw everything
+function draw() {
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, W, H);
 
-  // far stars (small, dim)
-  ctx.save();
-  for (const s of farStars) {
-    ctx.globalAlpha = s.alpha;
-    ctx.fillStyle = "rgb(120,150,200)";
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
-
-  // mid stars (brighter, slight blue)
-  ctx.save();
-  for (const s of midStars) {
-    ctx.globalAlpha = s.alpha;
-    ctx.fillStyle = "rgb(150,190,255)";
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
-
-  // near stars (bigger, brightest)
-  ctx.save();
-  for (const s of nearStars) {
-    ctx.globalAlpha = s.alpha;
-    ctx.fillStyle = "rgb(200,230,255)";
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
-
-  // blue nebula clouds
-  ctx.save();
-  const time = nebulaTime;
-  const nebulaCenters = [
-    { x: W * 0.3 + Math.sin(time) * W * 0.1,
-      y: H * 0.35 + Math.cos(time * 0.7) * H * 0.1 },
-    { x: W * 0.7 + Math.cos(time * 0.8) * W * 0.1,
-      y: H * 0.6 + Math.sin(time * 0.6) * H * 0.1 }
-  ];
-
-  for (const c of nebulaCenters) {
-    const grad = ctx.createRadialGradient(
-      c.x, c.y, 0,
-      c.x, c.y, Math.max(W, H) * 0.45
-    );
-    grad.addColorStop(0, "rgba(40,100,255,0.35)");
-    grad.addColorStop(0.4, "rgba(10,40,130,0.2)");
-    grad.addColorStop(1, "rgba(0,0,0,0)");
-
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
-  }
-  ctx.restore();
-}
-
-function drawBackgroundDrillions() {
-  if (!bgLoaded) return;
-  ctx.save();
-  ctx.globalAlpha = 0.16;
-  ctx.drawImage(bgLogo, 0, 0, W, H);
-  ctx.restore();
-}
-
-function drawGhostTrail() {
-  if (!logoLoaded) return;
-  for (let i = ghostTrail.length - 1; i >= 0; i--) {
-    const g = ghostTrail[i];
-    const t = (i + 1) / (ghostTrail.length + 1);
-    const scale = 0.7 + t * 0.25;
-    const alpha = 0.06 + t * 0.15;
-
-    const w = player.w * scale;
-    const h = player.h * scale;
-    const x = g.x - w / 2;
-    const y = g.y - h / 2;
-
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.drawImage(logoImg, x, y, w, h);
-    ctx.restore();
+  if (logoReady) {
+    ctx.drawImage(logo, player.x, player.y, player.w, player.h);
   }
 }
 
-function drawParticles() {
-  ctx.save();
-  ctx.globalCompositeOperation = "lighter";
-  for (const p of particles) {
-    let color;
-    if (p.tint === "cool") {
-      color = `rgba(160, 210, 255, ${p.alpha})`;
-    } else {
-      color = `rgba(230, 230, 240, ${p.alpha})`;
-    }
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
-}
-
-function drawPlayer() {
-  if (!logoLoaded) return;
-  ctx.drawImage(logoImg, player.x, player.y, player.w, player.h);
-}
-
-// ------------------------
-// MAIN LOOP
-// ------------------------
-function draw() {
-  drawGalaxy();
-  drawBackgroundDrillions();
-  drawParticles();
-  drawGhostTrail();
-  drawPlayer();
-}
-
+// Loop
 function loop() {
-  if (logoLoaded) {
-    updatePlayer();
-    updateParallax();
-    updateParticles();
-    draw();
-  }
+  updatePlayer();
+  draw();
   requestAnimationFrame(loop);
 }
 loop();
 
-// ------------------------
-// TAP TO ACCELERATE
-// ------------------------
+// Tap to accelerate
 canvas.addEventListener("touchstart", handleTap);
 canvas.addEventListener("touchmove", handleTap);
 
 function handleTap(e) {
   e.preventDefault();
   const t = e.touches[0];
+
   const tx = t.clientX;
   const ty = t.clientY;
 
