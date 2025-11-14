@@ -1,56 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>DRILLIONS CRT – FIRE TRAIL EDITION</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background:#000; }
-
-  #gameCanvas {
-    width: 100vw;
-    height: 100vh;
-    display: block;
-    background: #000;
-    touch-action: none;
-  }
-
-  .hud {
-    position: fixed;
-    top: 16px;
-    left: 16px;
-    font-family: system-ui, sans-serif;
-    color: #ffc978;
-    text-shadow: 0 0 6px #ffae3f;
-    z-index: 10;
-    font-size: 15px;
-  }
-
-  .message {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%,-50%);
-    font-size: 28px;
-    font-family: system-ui, sans-serif;
-    color: white;
-    opacity: 0;
-    text-shadow: 0 0 16px #ffa600;
-    transition: opacity .25s;
-    z-index: 20;
-  }
-  .message.show { opacity: 1; }
-
-</style>
+  <meta charset="UTF-8">
+  <title>DRILLIONS – CONVOY GHOST TRAIL EDITION</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+    #gameCanvas {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      background: #000;
+      touch-action: none;
+    }
+    .hud {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      font-family: system-ui, sans-serif;
+      color: #ffc978;
+      text-shadow: 0 0 6px #ffae3f;
+      font-size: 15px;
+      z-index: 10;
+    }
+  </style>
 </head>
 <body>
 
 <div class="hud">
-  <div>MODE: <strong>DRILLIONS FIRE EDITION</strong></div>
+  <div>MODE: <strong>DRILLIONS GHOST TRAIL</strong></div>
   <div>SCORE: <span id="scoreValue">0</span></div>
 </div>
-
-<div class="message" id="cornerMsg">PERFECT CORNER! +100</div>
 
 <canvas id="gameCanvas"></canvas>
 
@@ -67,185 +52,212 @@ resize();
 window.addEventListener("resize", resize);
 
 let score = 0;
-let paused = false;
 const scoreEl = document.getElementById("scoreValue");
-const cornerMsg = document.getElementById("cornerMsg");
 
-// Load Drillions logo
+// Load logo
 const logoImg = new Image();
 logoImg.src = "drillions-pixel-logo.png";
 let logoLoaded = false;
 logoImg.onload = () => logoLoaded = true;
 
-// Player object
+// Player with car-like speed behavior
 const player = {
-  x:120, y:120,
-  w:300, h:150,
-  vx:4, vy:3,
-  baseSpeed:6
+  x: 200,
+  y: 200,
+  w: 300,
+  h: 150,
+  vx: 4,
+  vy: 3,
+  minSpeed: 3.0,   // baseline cruise speed
+  maxSpeed: 10.0,  // hard cap
+  drag: 0.95,      // how quickly it slows when you don't tap
+  tapAccel: 2.0    // how much each tap adds
 };
 
-// --------------------
-// FIRE TRAIL
-// --------------------
-const trail = [];
+// Ghost trail: last 6 positions of the logo
+const ghostTrail = [];
+const MAX_GHOSTS = 6;
 
-function addTrail(){
-  trail.push({
-    x: player.x + player.w/2,
-    y: player.y + player.h/2,
-    r: (player.w * 0.55) * (0.8 + Math.random()*0.4),
-    alpha: 0.60,
-    hue: 35 + Math.random() * 25,   // gold → amber → light red
-    flicker: Math.random() * 20
-  });
-  if(trail.length > 45) trail.shift();
-}
+// ---- UPDATE PLAYER PHYSICS ----
+function updatePlayer() {
+  // Apply drag
+  player.vx *= player.drag;
+  player.vy *= player.drag;
 
-function drawTrail(){
-  ctx.globalCompositeOperation = "lighter"; // makes fire glow
+  // Clamp speed between minSpeed and maxSpeed
+  let speed = Math.sqrt(player.vx * player.vx + player.vy * player.vy);
 
-  for(const t of trail){
-    let fireHue = t.hue + Math.sin((performance.now()/40) + t.flicker) * 8;
-
-    ctx.beginPath();
-    ctx.fillStyle = `hsla(${fireHue}, 100%, 60%, ${t.alpha})`;
-    ctx.shadowColor = `hsla(${fireHue}, 100%, 60%, 0.9)`;
-    ctx.shadowBlur = 25;
-    ctx.arc(t.x, t.y, t.r/3, 0, Math.PI*2);
-    ctx.fill();
-
-    t.alpha -= 0.025;
-    t.r *= 0.97;
+  if (speed < player.minSpeed) {
+    if (speed > 0.001) {
+      const f = player.minSpeed / speed;
+      player.vx *= f;
+      player.vy *= f;
+    } else {
+      // if somehow fully stopped, nudge it
+      player.vx = player.minSpeed;
+      player.vy = 0;
+    }
+  } else if (speed > player.maxSpeed) {
+    const f = player.maxSpeed / speed;
+    player.vx *= f;
+    player.vy *= f;
   }
 
-  ctx.globalCompositeOperation = "source-over"; // reset
-}
-
-// --------------------
-// CRT EFFECTS
-// --------------------
-function drawCRTEffects(){
-  // scanlines
-  ctx.save();
-  ctx.globalCompositeOperation="multiply";
-  ctx.fillStyle="rgba(0,0,0,0.5)";
-  for(let y=0; y<H; y+=2){
-    ctx.fillRect(0,y,W,1);
-  }
-  ctx.restore();
-
-  // vignette
-  ctx.save();
-  const v = ctx.createRadialGradient(
-    W/2,H/2, Math.min(W,H)*0.4,
-    W/2,H/2, Math.max(W,H)*0.75
-  );
-  v.addColorStop(0, "rgba(0,0,0,0)");
-  v.addColorStop(1, "rgba(0,0,0,0.75)");
-  ctx.fillStyle = v;
-  ctx.fillRect(0,0,W,H);
-  ctx.restore();
-}
-
-function showCorner(){
-  cornerMsg.classList.add("show");
-  setTimeout(()=>cornerMsg.classList.remove("show"), 300);
-}
-
-// --------------------
-// UPDATE LOGIC
-// --------------------
-function update(){
-  if(!logoLoaded || paused) return;
-
+  // Move
   player.x += player.vx;
   player.y += player.vy;
 
+  // Save position for ghost trail (at the logo's center)
+  ghostTrail.unshift({
+    x: player.x + player.w / 2,
+    y: player.y + player.h / 2
+  });
+  if (ghostTrail.length > MAX_GHOSTS) ghostTrail.pop();
+
+  // Collisions with walls
   let hitX = false, hitY = false;
 
-  // bounce physics
-  if(player.x <= 0){ player.x = 0; player.vx *= -1; hitX=true; }
-  if(player.x + player.w >= W){ player.x = W-player.w; player.vx *= -1; hitX=true; }
-  if(player.y <= 0){ player.y = 0; player.vy *= -1; hitY=true; }
-  if(player.y + player.h >= H){ player.y = H-player.h; player.vy *= -1; hitY=true; }
+  if (player.x <= 0) {
+    player.x = 0;
+    player.vx *= -1;
+    hitX = true;
+  }
+  if (player.x + player.w >= W) {
+    player.x = W - player.w;
+    player.vx *= -1;
+    hitX = true;
+  }
+  if (player.y <= 0) {
+    player.y = 0;
+    player.vy *= -1;
+    hitY = true;
+  }
+  if (player.y + player.h >= H) {
+    player.y = H - player.h;
+    player.vy *= -1;
+    hitY = true;
+  }
 
-  if(hitX || hitY) score += 10;
+  if (hitX || hitY) {
+    score += 10;
+  }
 
-  // corner jackpot
+  // Corner bonus
   const COR = 50;
-  if(hitX && hitY){
+  if (hitX && hitY) {
     const corner =
       (player.x < COR && player.y < COR) ||
-      (player.x+player.w > W-COR && player.y < COR) ||
-      (player.x < COR && player.y+player.h > H-COR) ||
-      (player.x+player.w > W-COR && player.y+player.h > H-COR);
+      (player.x + player.w > W - COR && player.y < COR) ||
+      (player.x < COR && player.y + player.h > H - COR) ||
+      (player.x + player.w > W - COR && player.y + player.h > H - COR);
 
-    if(corner){
+    if (corner) {
       score += 100;
-      showCorner();
     }
   }
 
   scoreEl.textContent = score;
 }
 
-// --------------------
-// DRAW EVERYTHING
-// --------------------
-function draw(){
-  ctx.fillStyle = "rgba(0,0,0,0.25)";
-  ctx.fillRect(0,0,W,H);
-
-  drawTrail();
-
-  if(logoLoaded){
-    ctx.drawImage(logoImg, player.x, player.y, player.w, player.h);
+// ---- DRAW CRT + BACKGROUND ----
+function drawCRT() {
+  // scanlines
+  ctx.save();
+  ctx.globalCompositeOperation = "multiply";
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  for (let y = 0; y < H; y += 2) {
+    ctx.fillRect(0, y, W, 1);
   }
+  ctx.restore();
 
-  drawCRTEffects();
+  // vignette
+  ctx.save();
+  const v = ctx.createRadialGradient(
+    W / 2, H / 2, Math.min(W, H) * 0.4,
+    W / 2, H / 2, Math.max(W, H) * 0.75
+  );
+  v.addColorStop(0, "rgba(0,0,0,0)");
+  v.addColorStop(1, "rgba(0,0,0,0.75)");
+  ctx.fillStyle = v;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
 }
 
-// --------------------
-// MAIN LOOP
-// --------------------
-function loop(){
-  addTrail();
-  update();
-  draw();
+// ---- DRAW GHOST DRILLIONS ----
+function drawGhostTrail() {
+  if (!logoLoaded) return;
+
+  // Oldest first → lightest imprint
+  for (let i = ghostTrail.length - 1; i >= 0; i--) {
+    const g = ghostTrail[i];
+    const t = (i + 1) / (ghostTrail.length + 1); // 0..1
+    const scale = 0.7 + t * 0.25;                // slightly smaller behind
+    const alpha = 0.08 + t * 0.18;               // closer = more visible
+
+    const w = player.w * scale;
+    const h = player.h * scale;
+    const x = g.x - w / 2;
+    const y = g.y - h / 2;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(logoImg, x, y, w, h);
+    ctx.restore();
+  }
+}
+
+// ---- DRAW MAIN LOGO ----
+function drawPlayer() {
+  if (!logoLoaded) return;
+  ctx.drawImage(logoImg, player.x, player.y, player.w, player.h);
+}
+
+// ---- MAIN DRAW ----
+function draw() {
+  // slight fade for motion blur
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.fillRect(0, 0, W, H);
+
+  drawGhostTrail();
+  drawPlayer();
+  drawCRT();
+}
+
+// ---- LOOP ----
+function loop() {
+  if (logoLoaded) {
+    updatePlayer();
+    draw();
+  }
   requestAnimationFrame(loop);
 }
 loop();
 
-// --------------------
-// TAP-TO-MOVE
-// --------------------
-canvas.addEventListener("touchstart", moveTowardTap);
-canvas.addEventListener("touchmove", moveTowardTap);
+// ---- TAP ACCELERATION ----
+canvas.addEventListener("touchstart", handleTap);
+canvas.addEventListener("touchmove", handleTap);
 
-function moveTowardTap(e){
+function handleTap(e) {
   e.preventDefault();
-  let t = e.touches[0];
-  let tx = t.clientX;
-  let ty = t.clientY;
+  const t = e.touches[0];
+  const tx = t.clientX;
+  const ty = t.clientY;
 
-  let cx = player.x + player.w/2;
-  let cy = player.y + player.h/2;
+  const cx = player.x + player.w / 2;
+  const cy = player.y + player.h / 2;
 
   let dx = tx - cx;
   let dy = ty - cy;
+  const d = Math.sqrt(dx * dx + dy * dy);
+  if (d > 0) {
+    dx /= d;
+    dy /= d;
+  }
 
-  let d = Math.sqrt(dx*dx + dy*dy);
-  if(d>0){ dx/=d; dy/=d; }
-
-  player.vx = dx * player.baseSpeed;
-  player.vy = dy * player.baseSpeed;
+  // Each tap adds acceleration in that direction (like pressing gas)
+  player.vx += dx * player.tapAccel;
+  player.vy += dy * player.tapAccel;
 }
-
-// pause for desktop
-window.addEventListener("keydown", e=>{
-  if(e.code==="Space") paused = !paused;
-});
 </script>
 
 </body>
