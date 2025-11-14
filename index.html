@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DRILLIONS – CHROME EDITION</title>
+  <title>DRILLIONS – ULTRA CHROME EDITION</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
@@ -21,7 +21,7 @@
 </head>
 <body>
 
-<div class="hud">DRILLIONS – CHROME MODE</div>
+<div class="hud">DRILLIONS – ULTRA CHROME</div>
 
 <canvas id="gameCanvas"></canvas>
 
@@ -41,15 +41,15 @@ resize();
 window.addEventListener("resize", resize);
 
 // --------------------------------------
-// Force-loaded Player Logo (fixes Safari)
+// Force-loaded Player Logo (fixes Safari cache)
 // --------------------------------------
 const logo = new Image();
-logo.src = "drillions-pixel-logo.png?v=" + Date.now(); // prevent caching
+logo.src = "drillions-pixel-logo.png?v=" + Date.now();
 let logoReady = false;
 logo.onload = () => logoReady = true;
 
 // --------------------------------------
-// Player Object
+// Player
 // --------------------------------------
 const player = {
   x: 150, y: 150,
@@ -62,19 +62,33 @@ const player = {
 };
 
 // --------------------------------------
-// Ghost Trail
+// Trails, Particles, Followers
 // --------------------------------------
 const ghostTrail = [];
 const MAX_GHOSTS = 6;
 
-// --------------------------------------
-// Chrome Spark Particles
-// --------------------------------------
+const beamTrail = [];
+const MAX_BEAM_POINTS = 40;
+
 const particles = [];
-const MAX_PARTICLES = 120;
+const MAX_PARTICLES = 150;
+
+const followers = [];
+const FOLLOWER_COUNT = 5;
+
+// init followers at player center
+function initFollowers() {
+  followers.length = 0;
+  const cx = player.x + player.w/2;
+  const cy = player.y + player.h/2;
+  for (let i = 0; i < FOLLOWER_COUNT; i++) {
+    followers.push({ x: cx, y: cy });
+  }
+}
+initFollowers();
 
 // --------------------------------------
-// Chrome Starfield Background
+// Chrome Starfield
 // --------------------------------------
 const STAR_COUNT = 180;
 let stars = [];
@@ -106,14 +120,75 @@ function updateStars() {
 function drawStars() {
   for (const s of stars) {
     ctx.fillStyle = s.tint === "cool" ? "#a7f3ff" : "#5ddcff";
-    ctx.globalAlpha = 0.8;
+    ctx.globalAlpha = 0.7;
     ctx.fillRect(s.x, s.y, s.size, s.size);
   }
   ctx.globalAlpha = 1.0;
 }
 
 // --------------------------------------
-// Player Physics + Movement
+// Camera Shake + Flash (corner impact FX)
+// --------------------------------------
+let shakeTime = 0;
+let shakeIntensity = 0;
+let flashAlpha = 0;
+
+function startShake(intensity = 10, duration = 10) {
+  shakeTime = duration;
+  shakeIntensity = intensity;
+  flashAlpha = 0.35;
+}
+
+// --------------------------------------
+// Nebula (blue glow reacting to movement)
+// --------------------------------------
+let nebulaTime = 0;
+
+function drawNebula() {
+  nebulaTime += 0.004;
+
+  const speed = Math.sqrt(player.vx**2 + player.vy**2);
+  const cx = player.x + player.w/2;
+  const cy = player.y + player.h/2;
+  const dirX = speed > 0.1 ? player.vx / speed : 0;
+  const dirY = speed > 0.1 ? player.vy / speed : 0;
+
+  const aheadX = cx + dirX * 80;
+  const aheadY = cy + dirY * 80;
+
+  ctx.save();
+
+  const spread = Math.max(W, H) * 0.55;
+  const g1 = ctx.createRadialGradient(
+    aheadX, aheadY, 0,
+    aheadX, aheadY, spread
+  );
+  g1.addColorStop(0, "rgba(40,130,255,0.30)");
+  g1.addColorStop(0.4, "rgba(10,60,160,0.22)");
+  g1.addColorStop(1, "rgba(0,0,0,0)");
+
+  ctx.fillStyle = g1;
+  ctx.fillRect(0, 0, W, H);
+
+  const behindX = cx - dirX * 100 + Math.sin(nebulaTime)*40;
+  const behindY = cy - dirY * 100 + Math.cos(nebulaTime*0.7)*40;
+
+  const g2 = ctx.createRadialGradient(
+    behindX, behindY, 0,
+    behindX, behindY, spread * 0.9
+  );
+  g2.addColorStop(0, "rgba(20,80,210,0.18)");
+  g2.addColorStop(0.4, "rgba(6,30,100,0.15)");
+  g2.addColorStop(1, "rgba(0,0,0,0)");
+
+  ctx.fillStyle = g2;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.restore();
+}
+
+// --------------------------------------
+// Player Physics
 // --------------------------------------
 function updatePlayer() {
   player.vx *= player.drag;
@@ -136,33 +211,101 @@ function updatePlayer() {
   player.x += player.vx;
   player.y += player.vy;
 
-  if (player.x <= 0 || player.x + player.w >= W) player.vx *= -1;
-  if (player.y <= 0 || player.y + player.h >= H) player.vy *= -1;
+  let hitX = false, hitY = false;
 
-  // clamp
+  if (player.x <= 0 || player.x + player.w >= W) {
+    player.vx *= -1;
+    hitX = true;
+  }
+  if (player.y <= 0 || player.y + player.h >= H) {
+    player.vy *= -1;
+    hitY = true;
+  }
+
   player.x = Math.max(0, Math.min(W - player.w, player.x));
   player.y = Math.max(0, Math.min(H - player.h, player.y));
 
-  // ghost trail
-  ghostTrail.unshift({ 
-    x: player.x + player.w/2,
-    y: player.y + player.h/2
-  });
+  const cx = player.x + player.w/2;
+  const cy = player.y + player.h/2;
+
+  // ghost path
+  ghostTrail.unshift({ x: cx, y: cy });
   if (ghostTrail.length > MAX_GHOSTS) ghostTrail.pop();
 
-  // chrome sparks
+  // beam path
+  beamTrail.unshift({ x: cx, y: cy });
+  if (beamTrail.length > MAX_BEAM_POINTS) beamTrail.pop();
+
+  // sparks
   spawnTrailSparks();
+
+  // corner/bounce FX
+  if (hitX || hitY) {
+    const cornerZone = 60;
+    const inCorner =
+      (player.x < cornerZone && player.y < cornerZone) ||
+      (player.x + player.w > W - cornerZone && player.y < cornerZone) ||
+      (player.x < cornerZone && player.y + player.h > H - cornerZone) ||
+      (player.x + player.w > W - cornerZone && player.y + player.h > H - cornerZone);
+
+    if (inCorner && hitX && hitY) {
+      spawnBurstSparks(1.6);
+      startShake(16, 14);
+    } else {
+      spawnBurstSparks(1.0);
+      startShake(10, 8);
+    }
+  }
+}
+
+// --------------------------------------
+// Followers
+// --------------------------------------
+function updateFollowers() {
+  const headX = player.x + player.w/2;
+  const headY = player.y + player.h/2;
+
+  for (let i = 0; i < followers.length; i++) {
+    const f = followers[i];
+    const target = (i === 0)
+      ? { x: headX, y: headY }
+      : followers[i - 1];
+
+    f.x += (target.x - f.x) * 0.12;
+    f.y += (target.y - f.y) * 0.12;
+  }
+}
+
+function drawFollowers() {
+  if (!logoReady) return;
+  for (let i = followers.length - 1; i >= 0; i--) {
+    const f = followers[i];
+    const t = (i + 1) / (followers.length + 1);
+    const scale = 0.55 + t * 0.25;
+    const alpha = 0.17 * t;
+
+    const w = player.w * scale;
+    const h = player.h * scale;
+    const x = f.x - w/2;
+    const y = f.y - h/2;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(logo, x, y, w, h);
+    ctx.restore();
+  }
 }
 
 // --------------------------------------
 // Ghost Trail Drawing
 // --------------------------------------
 function drawGhostTrail() {
+  if (!logoReady) return;
   for (let i = ghostTrail.length - 1; i >= 0; i--) {
     const g = ghostTrail[i];
     const t = (i + 1) / (ghostTrail.length + 1);
-    const scale = 0.7 + t * 0.3;
-    const alpha = 0.06 + t * 0.12;
+    const scale = 0.7 + t * 0.25;
+    const alpha = 0.06 + t * 0.14;
 
     const w = player.w * scale;
     const h = player.h * scale;
@@ -174,6 +317,38 @@ function drawGhostTrail() {
     ctx.drawImage(logo, x, y, w, h);
     ctx.restore();
   }
+}
+
+// --------------------------------------
+// Hyper Chrome Beam Trail
+// --------------------------------------
+function drawBeamTrail() {
+  if (beamTrail.length < 2) return;
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  for (let i = 0; i < beamTrail.length - 1; i++) {
+    const p0 = beamTrail[i];
+    const p1 = beamTrail[i + 1];
+
+    const t = 1 - i / (beamTrail.length - 1);
+    const width = 12 * t;
+    const alpha = 0.08 + 0.22 * t;
+
+    const grad = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y);
+    grad.addColorStop(0, `rgba(190,240,255,${alpha})`);
+    grad.addColorStop(1, `rgba(110,170,255,${alpha})`);
+
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    ctx.lineTo(p1.x, p1.y);
+    ctx.stroke();
+  }
+
+  ctx.restore();
 }
 
 // --------------------------------------
@@ -189,18 +364,42 @@ function spawnTrailSparks() {
 
   for (let i = 0; i < count; i++) {
     if (particles.length >= MAX_PARTICLES) break;
-
     const angle = Math.random() * Math.PI * 2;
     const spd = 0.5 + Math.random() * 1.2;
 
     particles.push({
-      x: cx, y: cy,
+      x: cx,
+      y: cy,
       vx: Math.cos(angle)*spd,
       vy: Math.sin(angle)*spd,
       alpha: 0.4 + Math.random()*0.2,
       life: 40 + Math.random()*20,
       size: 2 + Math.random()*3,
       tint: Math.random() < 0.5 ? "cool" : "warm"
+    });
+  }
+}
+
+function spawnBurstSparks(mult = 1) {
+  const cx = player.x + player.w/2;
+  const cy = player.y + player.h/2;
+  const baseCount = 26;
+  const total = Math.floor(baseCount * mult);
+
+  for (let i = 0; i < total; i++) {
+    if (particles.length >= MAX_PARTICLES) break;
+    const angle = Math.random() * Math.PI * 2;
+    const spd = 2 + Math.random() * 3;
+
+    particles.push({
+      x: cx,
+      y: cy,
+      vx: Math.cos(angle)*spd,
+      vy: Math.sin(angle)*spd,
+      alpha: 0.5 + Math.random()*0.3,
+      life: 30 + Math.random()*30,
+      size: 3 + Math.random()*4,
+      tint: Math.random() < 0.6 ? "cool" : "warm"
     });
   }
 }
@@ -212,7 +411,6 @@ function updateParticles() {
     p.y += p.vy;
     p.alpha *= 0.96;
     p.life--;
-
     if (p.life <= 0 || p.alpha <= 0.05) {
       particles.splice(i, 1);
     }
@@ -222,52 +420,73 @@ function updateParticles() {
 function drawParticles() {
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
-
-  particles.forEach(p => {
-    ctx.fillStyle = p.tint === "cool" ?
-      `rgba(180,230,255,${p.alpha})` :
-      `rgba(230,230,240,${p.alpha})`;
-
+  for (const p of particles) {
+    const col = p.tint === "cool"
+      ? `rgba(180,230,255,${p.alpha})`
+      : `rgba(230,230,240,${p.alpha})`;
+    ctx.fillStyle = col;
     ctx.beginPath();
     ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
     ctx.fill();
-  });
-
+  }
   ctx.restore();
 }
 
 // --------------------------------------
-// Draw Main Player
+// Draw Player
 // --------------------------------------
 function drawPlayer() {
-  if (logoReady) {
-    ctx.drawImage(logo, player.x, player.y, player.w, player.h);
-  }
+  if (!logoReady) return;
+  ctx.drawImage(logo, player.x, player.y, player.w, player.h);
 }
 
 // --------------------------------------
-// Game Loop
+// Main Loop
 // --------------------------------------
 function loop() {
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, W, H);
 
   updateStars();
-  drawStars();
-
   updatePlayer();
+  updateFollowers();
   updateParticles();
 
+  ctx.save();
+
+  // camera shake
+  if (shakeTime > 0) {
+    shakeTime--;
+    const sx = (Math.random() - 0.5) * 2 * shakeIntensity;
+    const sy = (Math.random() - 0.5) * 2 * shakeIntensity;
+    ctx.translate(sx, sy);
+    shakeIntensity *= 0.9;
+  }
+
+  drawStars();
+  drawNebula();
+  drawBeamTrail();
   drawGhostTrail();
+  drawFollowers();
   drawParticles();
   drawPlayer();
+
+  ctx.restore();
+
+  if (flashAlpha > 0) {
+    ctx.save();
+    ctx.fillStyle = `rgba(180,220,255,${flashAlpha})`;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+    flashAlpha *= 0.85;
+  }
 
   requestAnimationFrame(loop);
 }
 loop();
 
 // --------------------------------------
-// Touch Controls
+// Touch Controls (tap to accelerate)
 // --------------------------------------
 canvas.addEventListener("touchstart", accelerate);
 canvas.addEventListener("touchmove", accelerate);
@@ -275,7 +494,7 @@ canvas.addEventListener("touchmove", accelerate);
 function accelerate(e) {
   e.preventDefault();
   const t = e.touches[0];
-  
+
   const tx = t.clientX;
   const ty = t.clientY;
 
