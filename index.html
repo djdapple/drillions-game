@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DRILLIONS – SAFE MODE</title>
+  <title>DRILLIONS – STARFIELD MODE</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
@@ -12,8 +12,8 @@
       top: 16px;
       left: 16px;
       font-family: system-ui, sans-serif;
-      color: #ffd88a;
-      text-shadow: 0 0 4px #ffae3f;
+      color: #8af3ff;
+      text-shadow: 0 0 6px #00eaff;
       font-size: 15px;
       z-index: 10;
     }
@@ -22,17 +22,17 @@
 <body>
 
 <div class="hud">
-  <div>SAFE MODE: RUNNING</div>
+  <div>CHROME STARFIELD MODE</div>
 </div>
 
 <canvas id="gameCanvas"></canvas>
 
 <script>
-// Core setup
+// Setup
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-
 let W, H;
+
 function resize() {
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
@@ -40,7 +40,7 @@ function resize() {
 resize();
 window.addEventListener("resize", resize);
 
-// Load player logo
+// Load logo
 const logo = new Image();
 logo.src = "drillions-pixel-logo.png";
 let logoReady = false;
@@ -60,54 +60,75 @@ const player = {
   maxSpeed: 13
 };
 
-// Movement + physics
+// Starfield
+const starCount = 180;
+const stars = [];
+
+function spawnStars() {
+  stars.length = 0;
+  for (let i = 0; i < starCount; i++) {
+    stars.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      size: Math.random() * 2 + 0.5,
+      speed: Math.random() * 0.6 + 0.3,
+      chrome: Math.random()
+    });
+  }
+}
+spawnStars();
+
+// Update stars (parallax)
+function updateStars() {
+  stars.forEach(s => {
+    s.y += s.speed;
+    if (s.y > H) {
+      s.y = -5;
+      s.x = Math.random() * W;
+    }
+  });
+}
+
+// Draw stars
+function drawStars() {
+  stars.forEach(s => {
+    let chromeShade = s.chrome > 0.5 ? "#a7f3ff" : "#5ddcff";
+    ctx.fillStyle = chromeShade;
+    ctx.fillRect(s.x, s.y, s.size, s.size);
+  });
+}
+
+// Player physics
 function updatePlayer() {
-  // drag
   player.vx *= player.drag;
   player.vy *= player.drag;
 
   let speed = Math.sqrt(player.vx ** 2 + player.vy ** 2);
 
-  // enforce minimum speed
   if (speed < player.minSpeed) {
-    if (speed > 0.1) {
-      const f = player.minSpeed / speed;
-      player.vx *= f;
-      player.vy *= f;
-    }
+    const f = player.minSpeed / (speed || 1);
+    player.vx *= f;
+    player.vy *= f;
   }
-
-  // enforce max speed
+  
   if (speed > player.maxSpeed) {
     const f = player.maxSpeed / speed;
     player.vx *= f;
     player.vy *= f;
   }
 
-  // apply movement
   player.x += player.vx;
   player.y += player.vy;
 
-  // bounce
-  if (player.x <= 0 || player.x + player.w >= W) {
-    player.vx *= -1;
-  }
-  if (player.y <= 0 || player.y + player.h >= H) {
-    player.vy *= -1;
-  }
+  if (player.x <= 0 || player.x + player.w >= W) player.vx *= -1;
+  if (player.y <= 0 || player.y + player.h >= H) player.vy *= -1;
 
-  // clamp to screen
-  if (player.x < 0) player.x = 0;
-  if (player.y < 0) player.y = 0;
-  if (player.x + player.w > W) player.x = W - player.w;
-  if (player.y + player.h > H) player.y = H - player.h;
+  player.x = Math.max(0, Math.min(W - player.w, player.x));
+  player.y = Math.max(0, Math.min(H - player.h, player.y));
 }
 
-// Draw everything
-function draw() {
-  ctx.fillStyle = "#000";
-  ctx.fillRect(0, 0, W, H);
-
+// Draw player
+function drawPlayer() {
   if (logoReady) {
     ctx.drawImage(logo, player.x, player.y, player.w, player.h);
   }
@@ -115,30 +136,33 @@ function draw() {
 
 // Loop
 function loop() {
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, W, H);
+
+  updateStars();
+  drawStars();
+
   updatePlayer();
-  draw();
+  drawPlayer();
+
   requestAnimationFrame(loop);
 }
 loop();
 
-// Tap to accelerate
-canvas.addEventListener("touchstart", handleTap);
-canvas.addEventListener("touchmove", handleTap);
+// Tap acceleration
+canvas.addEventListener("touchstart", boost);
+canvas.addEventListener("touchmove", boost);
 
-function handleTap(e) {
+function boost(e) {
   e.preventDefault();
-  const t = e.touches[0];
+  let t = e.touches[0];
+  let cx = player.x + player.w / 2;
+  let cy = player.y + player.h / 2;
 
-  const tx = t.clientX;
-  const ty = t.clientY;
+  let dx = t.clientX - cx;
+  let dy = t.clientY - cy;
+  let d = Math.sqrt(dx*dx + dy*dy);
 
-  const cx = player.x + player.w / 2;
-  const cy = player.y + player.h / 2;
-
-  let dx = tx - cx;
-  let dy = ty - cy;
-
-  const d = Math.sqrt(dx * dx + dy * dy);
   if (d > 0) {
     dx /= d;
     dy /= d;
