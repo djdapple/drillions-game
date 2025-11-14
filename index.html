@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DRILLIONS – CONVOY GHOST TRAIL EDITION</title>
+  <title>DRILLIONS – GHOST TRAIL EDITION</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -54,13 +54,13 @@ window.addEventListener("resize", resize);
 let score = 0;
 const scoreEl = document.getElementById("scoreValue");
 
-// Load logo
+// Load Drillions logo
 const logoImg = new Image();
-logoImg.src = "drillions-pixel-logo.png";
+logoImg.src = "drillions-pixel-logo.png"; // keep same file name in repo
 let logoLoaded = false;
 logoImg.onload = () => logoLoaded = true;
 
-// Player with car-like speed behavior
+// Player car-like movement
 const player = {
   x: 200,
   y: 200,
@@ -68,131 +68,93 @@ const player = {
   h: 150,
   vx: 4,
   vy: 3,
-  minSpeed: 3.0,   // baseline cruise speed
-  maxSpeed: 10.0,  // hard cap
-  drag: 0.95,      // how quickly it slows when you don't tap
-  tapAccel: 2.0    // how much each tap adds
+  minSpeed: 3.5,
+  maxSpeed: 10.5,
+  drag: 0.92,
+  tapAccel: 2.5
 };
 
-// Ghost trail: last 6 positions of the logo
+// Ghost trail (6 clones)
 const ghostTrail = [];
 const MAX_GHOSTS = 6;
 
-// ---- UPDATE PLAYER PHYSICS ----
+// ------------------------
+// UPDATE PLAYER MOVEMENT
+// ------------------------
 function updatePlayer() {
-  // Apply drag
+  // Car slow down
   player.vx *= player.drag;
   player.vy *= player.drag;
 
-  // Clamp speed between minSpeed and maxSpeed
-  let speed = Math.sqrt(player.vx * player.vx + player.vy * player.vy);
+  // Maintain minimum cruising speed
+  const speed = Math.sqrt(player.vx * player.vx + player.vy * player.vy);
 
   if (speed < player.minSpeed) {
-    if (speed > 0.001) {
+    if (speed > 0.01) {
       const f = player.minSpeed / speed;
       player.vx *= f;
       player.vy *= f;
     } else {
-      // if somehow fully stopped, nudge it
       player.vx = player.minSpeed;
       player.vy = 0;
     }
-  } else if (speed > player.maxSpeed) {
+  }
+
+  // Cap max speed
+  if (speed > player.maxSpeed) {
     const f = player.maxSpeed / speed;
     player.vx *= f;
     player.vy *= f;
   }
 
-  // Move
+  // Movement
   player.x += player.vx;
   player.y += player.vy;
 
-  // Save position for ghost trail (at the logo's center)
+  // Save to ghost trail
   ghostTrail.unshift({
     x: player.x + player.w / 2,
     y: player.y + player.h / 2
   });
   if (ghostTrail.length > MAX_GHOSTS) ghostTrail.pop();
 
-  // Collisions with walls
+  // Bounce collisions
   let hitX = false, hitY = false;
 
-  if (player.x <= 0) {
-    player.x = 0;
-    player.vx *= -1;
-    hitX = true;
-  }
-  if (player.x + player.w >= W) {
-    player.x = W - player.w;
-    player.vx *= -1;
-    hitX = true;
-  }
-  if (player.y <= 0) {
-    player.y = 0;
-    player.vy *= -1;
-    hitY = true;
-  }
-  if (player.y + player.h >= H) {
-    player.y = H - player.h;
-    player.vy *= -1;
-    hitY = true;
-  }
+  if (player.x <= 0) { player.x = 0; player.vx *= -1; hitX=true; }
+  if (player.x + player.w >= W) { player.x = W-player.w; player.vx *= -1; hitX=true; }
+  if (player.y <= 0) { player.y = 0; player.vy *= -1; hitY=true; }
+  if (player.y + player.h >= H) { player.y = H-player.h; player.vy *= -1; hitY=true; }
 
-  if (hitX || hitY) {
-    score += 10;
-  }
+  if (hitX || hitY) score += 10;
 
   // Corner bonus
-  const COR = 50;
+  const CORNER = 50;
   if (hitX && hitY) {
     const corner =
-      (player.x < COR && player.y < COR) ||
-      (player.x + player.w > W - COR && player.y < COR) ||
-      (player.x < COR && player.y + player.h > H - COR) ||
-      (player.x + player.w > W - COR && player.y + player.h > H - COR);
+      (player.x < CORNER && player.y < CORNER) ||
+      (player.x + player.w > W - CORNER && player.y < CORNER) ||
+      (player.x < CORNER && player.y + player.h > H - CORNER) ||
+      (player.x + player.w > W - CORNER && player.y + player.h > H - CORNER);
 
-    if (corner) {
-      score += 100;
-    }
+    if (corner) score += 100;
   }
 
   scoreEl.textContent = score;
 }
 
-// ---- DRAW CRT + BACKGROUND ----
-function drawCRT() {
-  // scanlines
-  ctx.save();
-  ctx.globalCompositeOperation = "multiply";
-  ctx.fillStyle = "rgba(0,0,0,0.5)";
-  for (let y = 0; y < H; y += 2) {
-    ctx.fillRect(0, y, W, 1);
-  }
-  ctx.restore();
-
-  // vignette
-  ctx.save();
-  const v = ctx.createRadialGradient(
-    W / 2, H / 2, Math.min(W, H) * 0.4,
-    W / 2, H / 2, Math.max(W, H) * 0.75
-  );
-  v.addColorStop(0, "rgba(0,0,0,0)");
-  v.addColorStop(1, "rgba(0,0,0,0.75)");
-  ctx.fillStyle = v;
-  ctx.fillRect(0, 0, W, H);
-  ctx.restore();
-}
-
-// ---- DRAW GHOST DRILLIONS ----
+// ------------------------
+// DRAW GHOST TRAIL
+// ------------------------
 function drawGhostTrail() {
   if (!logoLoaded) return;
 
-  // Oldest first → lightest imprint
   for (let i = ghostTrail.length - 1; i >= 0; i--) {
     const g = ghostTrail[i];
-    const t = (i + 1) / (ghostTrail.length + 1); // 0..1
-    const scale = 0.7 + t * 0.25;                // slightly smaller behind
-    const alpha = 0.08 + t * 0.18;               // closer = more visible
+    const t = (i + 1) / (ghostTrail.length + 1); 
+
+    const scale = 0.7 + t * 0.23; 
+    const alpha = 0.06 + t * 0.15; 
 
     const w = player.w * scale;
     const h = player.h * scale;
@@ -206,24 +168,49 @@ function drawGhostTrail() {
   }
 }
 
-// ---- DRAW MAIN LOGO ----
-function drawPlayer() {
-  if (!logoLoaded) return;
-  ctx.drawImage(logoImg, player.x, player.y, player.w, player.h);
+// ------------------------
+// CRT EFFECT
+// ------------------------
+function drawCRT() {
+  ctx.save();
+  ctx.globalCompositeOperation = "multiply";
+  ctx.fillStyle = "rgba(0,0,0,0.45)";
+  for (let y = 0; y < H; y += 2) {
+    ctx.fillRect(0, y, W, 1);
+  }
+  ctx.restore();
+
+  ctx.save();
+  const v = ctx.createRadialGradient(
+    W/2, H/2, Math.min(W,H)*0.4,
+    W/2, H/2, Math.max(W,H)*0.75
+  );
+  v.addColorStop(0, "rgba(0,0,0,0)");
+  v.addColorStop(1, "rgba(0,0,0,0.75)");
+  ctx.fillStyle = v;
+  ctx.fillRect(0,0,W,H);
+  ctx.restore();
 }
 
-// ---- MAIN DRAW ----
+// ------------------------
+// DRAW
+// ------------------------
 function draw() {
-  // slight fade for motion blur
-  ctx.fillStyle = "rgba(0,0,0,0.3)";
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "rgba(0,0,0,0.28)";
+  ctx.fillRect(0,0,W,H);
 
   drawGhostTrail();
-  drawPlayer();
+
+  if (logoLoaded) {
+    ctx.drawImage(logoImg, player.x, player.y, player.w, player.h);
+  }
+
   drawCRT();
 }
 
-// ---- LOOP ----
+// ------------------------
+// LOOP
+// ------------------------
 function loop() {
   if (logoLoaded) {
     updatePlayer();
@@ -233,13 +220,16 @@ function loop() {
 }
 loop();
 
-// ---- TAP ACCELERATION ----
+// ------------------------
+// TAP-TO-ACCELERATE
+// ------------------------
 canvas.addEventListener("touchstart", handleTap);
 canvas.addEventListener("touchmove", handleTap);
 
 function handleTap(e) {
   e.preventDefault();
   const t = e.touches[0];
+
   const tx = t.clientX;
   const ty = t.clientY;
 
@@ -248,13 +238,14 @@ function handleTap(e) {
 
   let dx = tx - cx;
   let dy = ty - cy;
-  const d = Math.sqrt(dx * dx + dy * dy);
+
+  const d = Math.sqrt(dx*dx + dy*dy);
   if (d > 0) {
     dx /= d;
     dy /= d;
   }
 
-  // Each tap adds acceleration in that direction (like pressing gas)
+  // acceleration (like pressing gas)
   player.vx += dx * player.tapAccel;
   player.vy += dy * player.tapAccel;
 }
