@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DRILLIONS – SPEED ZONE</title>
+  <title>DRILLIONS – CHROME SPARKS EDITION</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -33,7 +33,7 @@
 <body>
 
 <div class="hud">
-  <div>MODE: <strong>DRILLIONS SPEED ZONE</strong></div>
+  <div>MODE: <strong>DRILLIONS CHROME SPARKS</strong></div>
   <div>SCORE: <span id="scoreValue">0</span></div>
 </div>
 
@@ -54,45 +54,51 @@ window.addEventListener("resize", resize);
 let score = 0;
 const scoreEl = document.getElementById("scoreValue");
 
-// load main logo
+// Main logo
 const logoImg = new Image();
 logoImg.src = "drillions-pixel-logo.png";
 let logoLoaded = false;
 logoImg.onload = () => logoLoaded = true;
 
-// LOAD BACKGROUND DRILLIONS LOGO
+// Background logo (chrome monument)
 const bgLogo = new Image();
-bgLogo.src = "drillions-bg.png"; // <-- upload this file to repo
+bgLogo.src = "drillions-bg.png"; // make sure this exists in repo
 let bgLoaded = false;
 bgLogo.onload = () => bgLoaded = true;
 
-// PLAYER SPEED UPGRADE
+// Player – fast, car-like movement
 const player = {
   x: 200,
   y: 200,
   w: 300,
   h: 150,
-  vx: 6,     // faster
+  vx: 6,
   vy: 4.5,
-  minSpeed: 4.5,  // faster cruise
-  maxSpeed: 13.5, // faster top speed
-  drag: 0.90,     // less slowdown
-  tapAccel: 3.2   // stronger acceleration
+  minSpeed: 4.5,
+  maxSpeed: 13.5,
+  drag: 0.90,
+  tapAccel: 3.2
 };
 
-// GHOST TRAIL
+// Ghost trail (echo logos)
 const ghostTrail = [];
 const MAX_GHOSTS = 6;
 
+// Chrome spark particles
+const particles = [];
+const MAX_PARTICLES = 160; // medium intensity
+
 // ------------------------
-// UPDATE PLAYER SPEED + MOVEMENT
+// UPDATE PLAYER MOVEMENT
 // ------------------------
 function updatePlayer() {
+  // drag / slowdown
   player.vx *= player.drag;
   player.vy *= player.drag;
 
-  const speed = Math.sqrt(player.vx*player.vx + player.vy*player.vy);
+  let speed = Math.sqrt(player.vx * player.vx + player.vy * player.vy);
 
+  // maintain min speed
   if (speed < player.minSpeed) {
     if (speed > 0.01) {
       const f = player.minSpeed / speed;
@@ -104,80 +110,199 @@ function updatePlayer() {
     }
   }
 
+  // clamp max speed
   if (speed > player.maxSpeed) {
     const f = player.maxSpeed / speed;
     player.vx *= f;
     player.vy *= f;
   }
 
+  // move
   player.x += player.vx;
   player.y += player.vy;
 
+  // save position for ghost trail
   ghostTrail.unshift({
     x: player.x + player.w / 2,
     y: player.y + player.h / 2
   });
   if (ghostTrail.length > MAX_GHOSTS) ghostTrail.pop();
 
+  // collisions
   let hitX = false, hitY = false;
 
-  if (player.x <= 0) { player.x = 0; player.vx *= -1; hitX=true; }
-  if (player.x + player.w >= W) { player.x = W-player.w; player.vx *= -1; hitX=true; }
-  if (player.y <= 0) { player.y = 0; player.vy *= -1; hitY=true; }
-  if (player.y + player.h >= H) { player.y = H-player.h; player.vy *= -1; hitY=true; }
+  if (player.x <= 0) {
+    player.x = 0;
+    player.vx *= -1;
+    hitX = true;
+  }
+  if (player.x + player.w >= W) {
+    player.x = W - player.w;
+    player.vx *= -1;
+    hitX = true;
+  }
+  if (player.y <= 0) {
+    player.y = 0;
+    player.vy *= -1;
+    hitY = true;
+  }
+  if (player.y + player.h >= H) {
+    player.y = H - player.h;
+    player.vy *= -1;
+    hitY = true;
+  }
 
-  if (hitX || hitY) score += 10;
+  if (hitX || hitY) {
+    score += 10;
+    spawnBurstSparks(); // burst on bounce
+  }
 
   const COR = 50;
   if (hitX && hitY) {
     const corner =
       (player.x < COR && player.y < COR) ||
-      (player.x + player.w > W-COR && player.y < COR) ||
-      (player.x < COR && player.y + player.h > COR) ||
-      (player.x + player.w > W-COR && player.y + player.h > H-COR);
-    if (corner) score += 100;
+      (player.x + player.w > W - COR && player.y < COR) ||
+      (player.x < COR && player.y + player.h > H - COR) ||
+      (player.x + player.w > W - COR && player.y + player.h > H - COR);
+    if (corner) {
+      score += 100;
+      spawnBurstSparks(1.5); // stronger burst on corner
+    }
   }
 
   scoreEl.textContent = score;
+
+  // spawn regular sparks while moving
+  spawnTrailSparks();
 }
 
 // ------------------------
-// DRAW LARGE BACKGROUND DRILLIONS LOGO
+// BACKGROUND DRILLIONS
 // ------------------------
 function drawBackgroundDrillions() {
   if (!bgLoaded) return;
-
-  const size = Math.min(W, H) * 1.3;
-  const x = (W - size) / 2;
-  const y = (H - size) / 2;
-
   ctx.save();
-  ctx.globalAlpha = 0.08; // faint, stylish
-  ctx.drawImage(bgLogo, x, y, size, size);
+  ctx.globalAlpha = 0.15; // a bit stronger so it reads
+  ctx.drawImage(bgLogo, 0, 0, W, H); // stretch to screen
   ctx.restore();
 }
 
 // ------------------------
-// DRAW GHOST TRAIL
+// GHOST LOGO TRAIL
 // ------------------------
 function drawGhostTrail() {
   if (!logoLoaded) return;
 
   for (let i = ghostTrail.length - 1; i >= 0; i--) {
     const g = ghostTrail[i];
-    const t = (i+1) / (ghostTrail.length+1);
-
+    const t = (i + 1) / (ghostTrail.length + 1);
     const scale = 0.7 + t * 0.25;
     const alpha = 0.06 + t * 0.15;
 
     const w = player.w * scale;
     const h = player.h * scale;
+    const x = g.x - w / 2;
+    const y = g.y - h / 2;
 
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.drawImage(logoImg, g.x - w/2, g.y - h/2, w, h);
+    ctx.drawImage(logoImg, x, y, w, h);
     ctx.restore();
   }
+}
+
+// ------------------------
+// CHROME SPARK PARTICLES
+// ------------------------
+function spawnTrailSparks() {
+  // spawn small amount per frame (medium density)
+  const speed = Math.sqrt(player.vx * player.vx + player.vy * player.vy);
+  const intensity = Math.min(1, speed / player.maxSpeed);
+
+  const count = 1 + Math.floor(intensity * 2); // 1–3 sparks per frame
+
+  const cx = player.x + player.w / 2;
+  const cy = player.y + player.h / 2;
+
+  for (let i = 0; i < count; i++) {
+    if (particles.length >= MAX_PARTICLES) break;
+
+    const angle = Math.random() * Math.PI * 2;
+    const speedFactor = 0.5 + Math.random() * 1.2;
+
+    particles.push({
+      x: cx,
+      y: cy,
+      vx: Math.cos(angle) * speedFactor,
+      vy: Math.sin(angle) * speedFactor,
+      life: 40 + Math.random() * 20,
+      alpha: 0.35 + Math.random() * 0.25,
+      size: 2 + Math.random() * 3,
+      tint: Math.random() < 0.5 ? "cool" : "warm"
+    });
+  }
+}
+
+function spawnBurstSparks(mult = 1) {
+  const cx = player.x + player.w / 2;
+  const cy = player.y + player.h / 2;
+
+  const baseCount = 22; // burst amount
+  const total = Math.floor(baseCount * mult);
+
+  for (let i = 0; i < total; i++) {
+    if (particles.length >= MAX_PARTICLES) break;
+
+    const angle = Math.random() * Math.PI * 2;
+    const speedFactor = 2 + Math.random() * 3;
+
+    particles.push({
+      x: cx,
+      y: cy,
+      vx: Math.cos(angle) * speedFactor,
+      vy: Math.sin(angle) * speedFactor,
+      life: 30 + Math.random() * 30,
+      alpha: 0.5 + Math.random() * 0.3,
+      size: 3 + Math.random() * 4,
+      tint: Math.random() < 0.6 ? "cool" : "warm"
+    });
+  }
+}
+
+function updateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life -= 1;
+    p.alpha *= 0.96;
+
+    if (p.life <= 0 || p.alpha <= 0.02) {
+      particles.splice(i, 1);
+    }
+  }
+}
+
+function drawParticles() {
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter"; // chrome glint
+
+  for (const p of particles) {
+    let color;
+    if (p.tint === "cool") {
+      // bluish chrome
+      color = `rgba(160, 210, 255, ${p.alpha})`;
+    } else {
+      // neutral silver/white
+      color = `rgba(230, 230, 240, ${p.alpha})`;
+    }
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
 }
 
 // ------------------------
@@ -193,19 +318,21 @@ function drawPlayer() {
 // ------------------------
 function draw() {
   ctx.fillStyle = "#000";
-  ctx.fillRect(0,0,W,H);
+  ctx.fillRect(0, 0, W, H);
 
   drawBackgroundDrillions();
+  drawParticles();
   drawGhostTrail();
   drawPlayer();
 }
 
 // ------------------------
-// GAME LOOP
+// LOOP
 // ------------------------
 function loop() {
   if (logoLoaded) {
     updatePlayer();
+    updateParticles();
     draw();
   }
   requestAnimationFrame(loop);
@@ -213,14 +340,13 @@ function loop() {
 loop();
 
 // ------------------------
-// TAP ACCEL MODE
+// TAP → ACCELERATE
 // ------------------------
 canvas.addEventListener("touchstart", handleTap);
 canvas.addEventListener("touchmove", handleTap);
 
 function handleTap(e) {
   e.preventDefault();
-
   const t = e.touches[0];
   const tx = t.clientX;
   const ty = t.clientY;
@@ -237,7 +363,6 @@ function handleTap(e) {
     dy /= d;
   }
 
-  // more aggressive acceleration
   player.vx += dx * player.tapAccel;
   player.vy += dy * player.tapAccel;
 }
