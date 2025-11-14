@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>DRILLIONS CRT – MOBILE ARCADE</title>
+<title>DRILLIONS CRT – FIRE TRAIL EDITION</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; background:#000; }
@@ -20,8 +20,8 @@
     top: 16px;
     left: 16px;
     font-family: system-ui, sans-serif;
-    color: #9ff;
-    text-shadow: 0 0 6px #0ff;
+    color: #ffc978;
+    text-shadow: 0 0 6px #ffae3f;
     z-index: 10;
     font-size: 15px;
   }
@@ -35,7 +35,7 @@
     font-family: system-ui, sans-serif;
     color: white;
     opacity: 0;
-    text-shadow: 0 0 16px cyan;
+    text-shadow: 0 0 16px #ffa600;
     transition: opacity .25s;
     z-index: 20;
   }
@@ -46,9 +46,8 @@
 <body>
 
 <div class="hud">
-  <div>MODE: <strong>DRILLIONS MOBILE CRT</strong></div>
+  <div>MODE: <strong>DRILLIONS FIRE EDITION</strong></div>
   <div>SCORE: <span id="scoreValue">0</span></div>
-  <div>SPEED: <span id="speedValue">1.0x</span></div>
 </div>
 
 <div class="message" id="cornerMsg">PERFECT CORNER! +100</div>
@@ -70,49 +69,64 @@ window.addEventListener("resize", resize);
 let score = 0;
 let paused = false;
 const scoreEl = document.getElementById("scoreValue");
-const speedEl = document.getElementById("speedValue");
 const cornerMsg = document.getElementById("cornerMsg");
 
-// Load logo
+// Load Drillions logo
 const logoImg = new Image();
 logoImg.src = "drillions-pixel-logo.png";
 let logoLoaded = false;
 logoImg.onload = () => logoLoaded = true;
 
-// Player
+// Player object
 const player = {
   x:120, y:120,
   w:300, h:150,
   vx:4, vy:3,
-  speedMult:1.0,
-  maxMult:3.0
+  baseSpeed:6
 };
 
-// Trail system
+// --------------------
+// FIRE TRAIL
+// --------------------
 const trail = [];
+
 function addTrail(){
   trail.push({
     x: player.x + player.w/2,
     y: player.y + player.h/2,
-    r: player.w * 0.55,
-    alpha: 0.45,
-    hue: (performance.now()/12) % 360
+    r: (player.w * 0.55) * (0.8 + Math.random()*0.4),
+    alpha: 0.60,
+    hue: 35 + Math.random() * 25,   // gold → amber → light red
+    flicker: Math.random() * 20
   });
-  if(trail.length > 35) trail.shift();
+  if(trail.length > 45) trail.shift();
 }
 
 function drawTrail(){
+  ctx.globalCompositeOperation = "lighter"; // makes fire glow
+
   for(const t of trail){
+    let fireHue = t.hue + Math.sin((performance.now()/40) + t.flicker) * 8;
+
     ctx.beginPath();
-    ctx.fillStyle = `hsla(${t.hue},100%,60%,${t.alpha})`;
+    ctx.fillStyle = `hsla(${fireHue}, 100%, 60%, ${t.alpha})`;
+    ctx.shadowColor = `hsla(${fireHue}, 100%, 60%, 0.9)`;
+    ctx.shadowBlur = 25;
     ctx.arc(t.x, t.y, t.r/3, 0, Math.PI*2);
     ctx.fill();
-    t.alpha -= 0.02;
+
+    t.alpha -= 0.025;
+    t.r *= 0.97;
   }
+
+  ctx.globalCompositeOperation = "source-over"; // reset
 }
 
-// CRT scanlines + glow
+// --------------------
+// CRT EFFECTS
+// --------------------
 function drawCRTEffects(){
+  // scanlines
   ctx.save();
   ctx.globalCompositeOperation="multiply";
   ctx.fillStyle="rgba(0,0,0,0.5)";
@@ -121,7 +135,7 @@ function drawCRTEffects(){
   }
   ctx.restore();
 
-  // Vignette
+  // vignette
   ctx.save();
   const v = ctx.createRadialGradient(
     W/2,H/2, Math.min(W,H)*0.4,
@@ -136,38 +150,36 @@ function drawCRTEffects(){
 
 function showCorner(){
   cornerMsg.classList.add("show");
-  setTimeout(()=>cornerMsg.classList.remove("show"),300);
+  setTimeout(()=>cornerMsg.classList.remove("show"), 300);
 }
 
-// Update physics
+// --------------------
+// UPDATE LOGIC
+// --------------------
 function update(){
   if(!logoLoaded || paused) return;
 
-  player.x += player.vx * player.speedMult;
-  player.y += player.vy * player.speedMult;
+  player.x += player.vx;
+  player.y += player.vy;
 
   let hitX = false, hitY = false;
 
-  // Bounce collisions
+  // bounce physics
   if(player.x <= 0){ player.x = 0; player.vx *= -1; hitX=true; }
   if(player.x + player.w >= W){ player.x = W-player.w; player.vx *= -1; hitX=true; }
   if(player.y <= 0){ player.y = 0; player.vy *= -1; hitY=true; }
   if(player.y + player.h >= H){ player.y = H-player.h; player.vy *= -1; hitY=true; }
 
-  // Score
-  if(hitX||hitY){
-    score += 10;
-    player.speedMult = Math.min(player.speedMult + 0.015, player.maxMult);
-  }
+  if(hitX || hitY) score += 10;
 
-  // Corner jackpot
+  // corner jackpot
   const COR = 50;
   if(hitX && hitY){
     const corner =
       (player.x < COR && player.y < COR) ||
-      (player.x + player.w > W-COR && player.y < COR) ||
-      (player.x < COR && player.y + player.h > H-COR) ||
-      (player.x + player.w > W-COR && player.y + player.h > H-COR);
+      (player.x+player.w > W-COR && player.y < COR) ||
+      (player.x < COR && player.y+player.h > H-COR) ||
+      (player.x+player.w > W-COR && player.y+player.h > H-COR);
 
     if(corner){
       score += 100;
@@ -176,12 +188,13 @@ function update(){
   }
 
   scoreEl.textContent = score;
-  speedEl.textContent = player.speedMult.toFixed(1)+"x";
 }
 
-// Draw
+// --------------------
+// DRAW EVERYTHING
+// --------------------
 function draw(){
-  ctx.fillStyle="rgba(0,0,0,0.25)";
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
   ctx.fillRect(0,0,W,H);
 
   drawTrail();
@@ -193,7 +206,9 @@ function draw(){
   drawCRTEffects();
 }
 
-// Game loop
+// --------------------
+// MAIN LOOP
+// --------------------
 function loop(){
   addTrail();
   update();
@@ -202,36 +217,34 @@ function loop(){
 }
 loop();
 
-// ---- TAP-TO-MOVE (True Direction Control) ----
+// --------------------
+// TAP-TO-MOVE
+// --------------------
 canvas.addEventListener("touchstart", moveTowardTap);
 canvas.addEventListener("touchmove", moveTowardTap);
 
 function moveTowardTap(e){
   e.preventDefault();
-  let touch = e.touches[0];
-  let tx = touch.clientX;
-  let ty = touch.clientY;
+  let t = e.touches[0];
+  let tx = t.clientX;
+  let ty = t.clientY;
 
-  // center of logo
   let cx = player.x + player.w/2;
   let cy = player.y + player.h/2;
 
   let dx = tx - cx;
   let dy = ty - cy;
 
-  let length = Math.sqrt(dx*dx + dy*dy);
-  if(length > 0){
-    dx /= length;
-    dy /= length;
-  }
+  let d = Math.sqrt(dx*dx + dy*dy);
+  if(d>0){ dx/=d; dy/=d; }
 
-  player.vx = dx * 6;
-  player.vy = dy * 6;
+  player.vx = dx * player.baseSpeed;
+  player.vy = dy * player.baseSpeed;
 }
 
-// Pause on spacebar (desktop)
+// pause for desktop
 window.addEventListener("keydown", e=>{
-  if(e.code==="Space") paused=!paused;
+  if(e.code==="Space") paused = !paused;
 });
 </script>
 
