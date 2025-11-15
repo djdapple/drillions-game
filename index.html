@@ -223,9 +223,9 @@ function drawParticles() {
   ctx.globalCompositeOperation = "lighter";
 
   particles.forEach(p => {
-    ctx.fillStyle = p.tint === "cool" ?
-      `rgba(180,230,255,${p.alpha})` :
-      `rgba(230,230,240,${p.alpha})`;
+    ctx.fillStyle = p.tint === "cool"
+      ? `rgba(180,230,255,${p.alpha})`
+      : `rgba(230,230,240,${p.alpha})`;
 
     ctx.beginPath();
     ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
@@ -233,6 +233,14 @@ function drawParticles() {
   });
 
   ctx.restore();
+}
+
+// --------------------------------------
+// PLAYER DRAW FUNCTION (THE FIX)
+// --------------------------------------
+function drawPlayer() {
+  if (!logoReady) return;
+  ctx.drawImage(logo, player.x, player.y, player.w, player.h);
 }
 
 // ======================================================================
@@ -255,7 +263,6 @@ setInterval(() => {
   });
 }, 1200);
 
-// Update asteroid movement
 function updateAsteroids() {
   if (gameOver) return;
   for (let a of asteroids) {
@@ -263,7 +270,6 @@ function updateAsteroids() {
   }
 }
 
-// Draw pixel asteroids
 function drawAsteroids() {
   ctx.save();
   ctx.imageSmoothingEnabled = false;
@@ -279,7 +285,6 @@ function drawAsteroids() {
   ctx.restore();
 }
 
-// Collision check
 function checkAsteroidCollisions() {
   if (gameOver) return;
 
@@ -301,7 +306,6 @@ function checkAsteroidCollisions() {
   }
 }
 
-// Explosion particles
 function triggerExplosion(cx, cy) {
   for (let i = 0; i < 60; i++) {
     explosionParticles.push({
@@ -336,7 +340,6 @@ function drawExplosion() {
   ctx.restore();
 }
 
-// GAME OVER SCREEN
 function drawGameOver() {
   if (!gameOver) return;
 
@@ -354,7 +357,6 @@ function drawGameOver() {
   ctx.restore();
 }
 
-// Restart
 canvas.addEventListener("touchstart", () => {
   if (!gameOver) return;
   location.reload();
@@ -372,18 +374,17 @@ function loop() {
 
   updatePlayer();
   updateParticles();
-
   drawGhostTrail();
   drawParticles();
   drawPlayer();
 
-  // NEW FEATURES
   updateAsteroids();
   checkAsteroidCollisions();
   drawAsteroids();
 
   updateExplosion();
   drawExplosion();
+
   drawGameOver();
 
   requestAnimationFrame(loop);
@@ -391,7 +392,7 @@ function loop() {
 loop();
 
 // --------------------------------------
-// Touch Accelerate
+// Touch Controls
 // --------------------------------------
 canvas.addEventListener("touchstart", accelerate);
 canvas.addEventListener("touchmove", accelerate);
