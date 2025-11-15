@@ -6,117 +6,45 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
 <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background:#000; }
-    canvas { width:100vw; height:100vh; display:block; touch-action:none; }
-
-    #startScreen {
-        position: absolute;
-        top:0; left:0;
-        width:100%; height:100%;
-        background: rgba(0,0,0,0.8);
-        display:flex;
-        flex-direction:column;
-        justify-content:center;
-        align-items:center;
-        color:#8af3ff;
-        font-family: system-ui, sans-serif;
-        text-shadow: 0 0 8px #00eaff;
-    }
-
-    .btn {
-        margin-top:20px;
-        padding:14px 28px;
-        border:2px solid #8af3ff;
-        border-radius:8px;
-        color:#8af3ff;
-        font-size:20px;
-        letter-spacing:1px;
-        background:rgba(0,0,0,0.4);
-        text-shadow:0 0 6px #00eaff;
-    }
-
-    #timer {
-        position:fixed;
-        top:12px;
-        left:12px;
-        font-size:18px;
-        font-family: system-ui, sans-serif;
-        color:#8af3ff;
-        text-shadow:0 0 6px #00eaff;
-        z-index:20;
-    }
-
-    #gameOver {
-        position:absolute;
-        top:0; left:0;
-        width:100%; height:100%;
-        background:rgba(0,0,0,0.7);
-        display:none;
-        flex-direction:column;
-        justify-content:center;
-        align-items:center;
-        color:#8af3ff;
-        font-family: system-ui, sans-serif;
-        text-shadow:0 0 6px #00eaff;
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{width:100%;height:100%;overflow:hidden;background:#000;}
+    canvas{width:100vw;height:100vh;display:block;touch-action:none;}
+    #timer{
+        position:fixed;top:14px;left:14px;
+        color:#8af3ff;font-family:system-ui,sans-serif;
+        text-shadow:0 0 6px #00eaff;font-size:17px;z-index:10;
     }
 </style>
 </head>
 <body>
 
 <div id="timer">TIME: 0.0s</div>
-
-<div id="startScreen">
-    <h1>DRILLIONS — CHROME MODE</h1>
-    <button class="btn" onclick="startGame()">START DRILLIONS</button>
-</div>
-
-<div id="gameOver">
-    <h1>DRILLIONS DESTROYED</h1>
-    <h2 id="finalTime"></h2>
-    <button class="btn" onclick="restart()">RESTART</button>
-</div>
-
 <canvas id="gameCanvas"></canvas>
 
 <script>
-/* ------------------------------------------------------
-   CANVAS + GLOBALS
------------------------------------------------------- */
+/* ----------------------------------- */
+/* CANVAS SETUP */
+/* ----------------------------------- */
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 let W, H;
 
-function resize() {
-    W = canvas.width = window.innerWidth;
-    H = canvas.height = window.innerHeight;
+function resize(){
+    W = canvas.width = innerWidth;
+    H = canvas.height = innerHeight;
 }
 resize();
-window.addEventListener("resize", resize);
+addEventListener("resize", resize);
 
-/* ------------------------------------------------------
-   ASSETS
------------------------------------------------------- */
+/* ----------------------------------- */
+/* ASSETS */
+/* ----------------------------------- */
 const logo = new Image();
 logo.src = "drillions-pixel-logo.png";
 
-const sndBoost = new Audio("drillions_boost.wav");
-const sndHit   = new Audio("drillions_hit.wav");
-const sndExplode = new Audio("drillions_explode.wav");
-
-sndBoost.volume = 0.5;
-
-/* ------------------------------------------------------
-   GAME STATES
------------------------------------------------------- */
-let gameStarted = false;
-let gameOver = false;
-let startTime = 0;
-let elapsed = 0;
-
-/* ------------------------------------------------------
-   PLAYER
------------------------------------------------------- */
+/* ----------------------------------- */
+/* PLAYER */
+/* ----------------------------------- */
 const player = {
     x:200, y:200,
     w:260, h:130,
@@ -127,14 +55,13 @@ const player = {
     maxSpeed:14
 };
 
-/* ------------------------------------------------------
-   STARFIELD
------------------------------------------------------- */
+/* ----------------------------------- */
+/* STARS */
+/* ----------------------------------- */
 let stars = [];
-const STAR_COUNT = 200;
-function initStars() {
-    stars = [];
-    for (let i=0;i<STAR_COUNT;i++){
+function initStars(){
+    stars=[];
+    for(let i=0;i<200;i++){
         stars.push({
             x:Math.random()*W,
             y:Math.random()*H,
@@ -146,62 +73,57 @@ function initStars() {
 initStars();
 
 function updateStars(){
-    for (let s of stars){
+    for(let s of stars){
         s.y += s.sp;
-        if (s.y>H){ s.y=-5; s.x=Math.random()*W; }
+        if(s.y>H){s.y=-5;s.x=Math.random()*W;}
     }
 }
 
 function drawStars(){
     ctx.fillStyle="#8af3ff";
     ctx.globalAlpha=0.6;
-    for (let s of stars){
+    for(let s of stars){
         ctx.fillRect(s.x,s.y,s.s,s.s);
     }
     ctx.globalAlpha=1;
 }
 
-/* ------------------------------------------------------
-   PLAYER PHYSICS
------------------------------------------------------- */
+/* ----------------------------------- */
+/* PLAYER UPDATE */
+/* ----------------------------------- */
 function updatePlayer(){
-    if (!gameStarted || gameOver) return;
-
     player.vx *= player.drag;
     player.vy *= player.drag;
 
     let sp = Math.sqrt(player.vx**2 + player.vy**2);
-
-    if (sp < player.minSpeed){
+    if(sp<player.minSpeed){
         let f = player.minSpeed/(sp||1);
-        player.vx *= f; player.vy *= f;
+        player.vx*=f; player.vy*=f;
     }
-    if (sp > player.maxSpeed){
+    if(sp>player.maxSpeed){
         let f = player.maxSpeed/sp;
-        player.vx *= f; player.vy *= f;
+        player.vx*=f; player.vy*=f;
     }
 
     player.x += player.vx;
     player.y += player.vy;
 
-    if (player.x<=0 || player.x+player.w>=W) player.vx*=-1;
-    if (player.y<=0 || player.y+player.h>=H) player.vy*=-1;
+    if(player.x<=0||player.x+player.w>=W) player.vx*=-1;
+    if(player.y<=0||player.y+player.h>=H) player.vy*=-1;
 
-    player.x = Math.max(0, Math.min(W-player.w,player.x));
-    player.y = Math.max(0, Math.min(H-player.h,player.y));
+    player.x=Math.max(0,Math.min(W-player.w,player.x));
+    player.y=Math.max(0,Math.min(H-player.h,player.y));
 }
 
 function drawPlayer(){
-    ctx.drawImage(logo, player.x, player.y, player.w, player.h);
+    ctx.drawImage(logo,player.x,player.y,player.w,player.h);
 }
 
-/* ------------------------------------------------------
-   ASTEROIDS
------------------------------------------------------- */
-const asteroids = [];
-function spawnAsteroid(){
-    if (!gameStarted || gameOver) return;
-
+/* ----------------------------------- */
+/* ASTEROIDS */
+/* ----------------------------------- */
+const asteroids=[];
+function spawn(){
     asteroids.push({
         x:Math.random()*(W-50),
         y:-60,
@@ -209,97 +131,79 @@ function spawnAsteroid(){
         sp:3+Math.random()*2
     });
 }
-setInterval(spawnAsteroid, 800);
+setInterval(spawn, 900);
 
 function updateAsteroids(){
-    if (!gameStarted || gameOver) return;
-
-    for (let a of asteroids){
+    for(let a of asteroids){
         a.y += a.sp;
     }
 }
 
 function drawAsteroids(){
-    ctx.fillStyle="#3a3a3a";
-    for (let a of asteroids){
+    for(let a of asteroids){
+        ctx.fillStyle="#444";
         ctx.fillRect(a.x,a.y,a.s,a.s);
         ctx.fillStyle="#777";
         ctx.fillRect(a.x+10,a.y+10,a.s-20,a.s-20);
-        ctx.fillStyle="#3a3a3a";
     }
 }
 
-/* ------------------------------------------------------
-   COLLISION
------------------------------------------------------- */
-function checkCollision(){
-    if (gameOver || !gameStarted) return;
-
-    for (let a of asteroids){
-        if (player.x < a.x+a.s &&
+/* ----------------------------------- */
+/* COLLISION */
+/* ----------------------------------- */
+function checkHit(){
+    for(let a of asteroids){
+        if(
+            player.x < a.x+a.s &&
             player.x+player.w > a.x &&
             player.y < a.y+a.s &&
-            player.y+player.h > a.y){
-
-            sndExplode.play();
+            player.y+player.h > a.y
+        ){
             endGame();
         }
     }
 }
 
-/* ------------------------------------------------------
-   GAME OVER
------------------------------------------------------- */
+/* ----------------------------------- */
+/* GAME OVER */
+/* ----------------------------------- */
+let dead=false;
+
 function endGame(){
-    gameOver = true;
-
-    let survive = (elapsed/1000).toFixed(1);
-    document.getElementById("finalTime").innerText =
-        "YOU SURVIVED " + survive + "s";
-
-    document.getElementById("gameOver").style.display = "flex";
+    dead=true;
 }
 
-function restart(){
-    location.reload();
-}
+/* ----------------------------------- */
+/* TIMER */
+/* ----------------------------------- */
+let startTime = performance.now();
+let elapsed = 0;
 
-/* ------------------------------------------------------
-   START GAME
------------------------------------------------------- */
-function startGame(){
-    document.getElementById("startScreen").style.display="none";
-    gameStarted = true;
-    startTime = performance.now();
-}
-
-/* ------------------------------------------------------
-   TOUCH CONTROL
------------------------------------------------------- */
+/* ----------------------------------- */
+/* TOUCH CONTROL */
+/* ----------------------------------- */
 canvas.addEventListener("touchmove", e=>{
-    if (!gameStarted || gameOver) return;
+    if(dead) return;
 
-    const t = e.touches[0];
-    const tx = t.clientX;
-    const ty = t.clientY;
+    const t=e.touches[0];
+    const tx=t.clientX;
+    const ty=t.clientY;
 
-    const cx = player.x + player.w/2;
-    const cy = player.y + player.h/2;
+    const cx=player.x+player.w/2;
+    const cy=player.y+player.h/2;
 
-    let dx = tx - cx;
-    let dy = ty - cy;
-    let d  = Math.sqrt(dx*dx + dy*dy);
-    if (d>0){ dx/=d; dy/=d; }
+    let dx=tx-cx;
+    let dy=ty-cy;
+    let d=Math.sqrt(dx*dx+dy*dy);
+    if(d>0){dx/=d;dy/=d;}
 
-    player.vx += dx * player.tapAccel;
-    player.vy += dy * player.tapAccel;
-
-    sndBoost.play();
+    player.vx+=dx*player.tapAccel;
+    player.vy+=dy*player.tapAccel;
 });
 
-/* ------------------------------------------------------
-   LOOP
------------------------------------------------------- */
+/* ----------------------------------- */
+/* MAIN LOOP */
+/* ----------------------------------- */
 function loop(){
     ctx.fillStyle="#000";
     ctx.fillRect(0,0,W,H);
@@ -307,24 +211,23 @@ function loop(){
     updateStars();
     drawStars();
 
-    if (gameStarted && !gameOver){
+    if(!dead){
         elapsed = performance.now() - startTime;
         document.getElementById("timer").innerText =
-            "TIME: " + (elapsed/1000).toFixed(1) + "s";
+            "TIME: "+(elapsed/1000).toFixed(1)+"s";
     }
 
-    updatePlayer();
-    drawPlayer();
-
-    updateAsteroids();
-    drawAsteroids();
-
-    checkCollision();
+    if(!dead){
+        updatePlayer();
+        drawPlayer();
+        updateAsteroids();
+        drawAsteroids();
+        checkHit();
+    }
 
     requestAnimationFrame(loop);
 }
 loop();
 </script>
-
 </body>
 </html>
