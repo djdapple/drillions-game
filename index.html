@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DRILLIONS – Chrome Trails Edition</title>
+  <title>DRILLIONS – Clean Stars + Chrome Trails</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
@@ -15,7 +15,9 @@
 <canvas id="gameCanvas"></canvas>
 
 <script>
+// ------------------------------
 // Canvas
+// ------------------------------
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
@@ -27,38 +29,82 @@ function resize(){
 resize();
 addEventListener("resize", resize);
 
-// Load logo
+// ------------------------------
+// Load Logo
+// ------------------------------
 const logo = new Image();
 logo.src = "drillions-pixel-logo.png?v=" + Date.now();
-let ready = false;
-logo.onload = () => ready = true;
+let logoReady = false;
+logo.onload = () => logoReady = true;
 
-// Player
+// ------------------------------
+// Player (smooth, fast, clean)
+// ------------------------------
 const p = {
-  x: 120,
-  y: 120,
+  x: 150,
+  y: 150,
   w: 260,
   h: 130,
   vx: 4,
   vy: 4,
-  minSpeed: 3,
-  maxSpeed: 10,
   drag: 0.94,
-  accel: 2
+  accel: 2,
+  minSpeed: 3.0,
+  maxSpeed: 10
 };
 
-// Chrome trail
+// ------------------------------
+// Starfield (your old one)
+// ------------------------------
+const STAR_COUNT = 140;
+let stars = [];
+
+function initStars(){
+  stars = [];
+  for(let i=0;i<STAR_COUNT;i++){
+    stars.push({
+      x: Math.random()*W,
+      y: Math.random()*H,
+      size: Math.random()*1.8 + 0.4,
+      speed: Math.random()*0.4 + 0.2,
+      tint: Math.random() < 0.5 ? "cool" : "warm"
+    });
+  }
+}
+initStars();
+
+function updateStars(){
+  for(let s of stars){
+    s.y += s.speed;
+    if(s.y > H){
+      s.y = -2;
+      s.x = Math.random()*W;
+    }
+  }
+}
+
+function drawStars(){
+  ctx.globalAlpha = 0.8;
+  for(let s of stars){
+    ctx.fillStyle = s.tint === "cool" ? "#aaf5ff" : "#66d9ff";
+    ctx.fillRect(s.x, s.y, s.size, s.size);
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ------------------------------
+// Chrome Trail (your original)
+// ------------------------------
 const trail = [];
 const MAX_TRAIL = 40;
 
-// Update physics
-function update(){
+function updatePlayer(){
   p.vx *= p.drag;
   p.vy *= p.drag;
 
-  let speed = Math.sqrt(p.vx*p.vx + p.vy*p.vy);
+  const speed = Math.sqrt(p.vx*p.vx + p.vy*p.vy);
   if(speed < p.minSpeed){
-    const f = p.minSpeed / speed;
+    const f = p.minSpeed / (speed || 1);
     p.vx *= f;
     p.vy *= f;
   }
@@ -84,18 +130,19 @@ function update(){
   if(trail.length > MAX_TRAIL) trail.pop();
 }
 
-// Draw chrome trail
 function drawTrail(){
+  if(trail.length < 2) return;
+
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
 
-  for(let i=0;i<trail.length-1;i++){
+  for(let i=0; i<trail.length-1; i++){
     const a = trail[i];
     const b = trail[i+1];
     const t = 1 - i / trail.length;
-    
-    ctx.lineWidth = 6 * t;
-    ctx.strokeStyle = `rgba(120,200,255,${0.15*t})`;
+
+    ctx.lineWidth = 7 * t;
+    ctx.strokeStyle = `rgba(150,220,255,${0.12 + t*0.2})`;
     ctx.beginPath();
     ctx.moveTo(a.x, a.y);
     ctx.lineTo(b.x, b.y);
@@ -105,18 +152,25 @@ function drawTrail(){
   ctx.restore();
 }
 
-// Draw player
+// ------------------------------
+// Draw Player
+// ------------------------------
 function drawPlayer(){
-  if(!ready) return;
+  if(!logoReady) return;
   ctx.drawImage(logo, p.x, p.y, p.w, p.h);
 }
 
-// Loop
+// ------------------------------
+// Main Loop
+// ------------------------------
 function loop(){
   ctx.fillStyle = "#000";
   ctx.fillRect(0,0,W,H);
 
-  update();
+  updateStars();
+  updatePlayer();
+
+  drawStars();
   drawTrail();
   drawPlayer();
 
@@ -124,11 +178,13 @@ function loop(){
 }
 loop();
 
-// Touch accel
-canvas.addEventListener("touchstart", accelerate);
-canvas.addEventListener("touchmove", accelerate);
+// ------------------------------
+// Touch Acceleration
+// ------------------------------
+canvas.addEventListener("touchstart", accel);
+canvas.addEventListener("touchmove", accel);
 
-function accelerate(e){
+function accel(e){
   e.preventDefault();
   const t = e.touches[0];
   const tx = t.clientX;
@@ -142,8 +198,8 @@ function accelerate(e){
 
   const d = Math.sqrt(dx*dx + dy*dy);
   if(d > 0){
-    dx /= d;
-    dy /= d;
+    dx/=d;
+    dy/=d;
   }
 
   p.vx += dx * p.accel;
