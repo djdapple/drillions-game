@@ -2,207 +2,152 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DRILLIONS – CLASSIC CHROME</title>
+  <title>DRILLIONS – Chrome Trails Edition</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
     #gameCanvas { width: 100vw; height: 100vh; display: block; touch-action: none; }
   </style>
 </head>
+
 <body>
 
 <canvas id="gameCanvas"></canvas>
 
 <script>
-// ----------------------------------
-// Setup
-// ----------------------------------
+// Canvas
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 let W, H;
-function resize() {
+function resize(){
   W = canvas.width = innerWidth;
   H = canvas.height = innerHeight;
 }
 resize();
 addEventListener("resize", resize);
 
-// ----------------------------------
-// Load Logo
-// ----------------------------------
+// Load logo
 const logo = new Image();
 logo.src = "drillions-pixel-logo.png?v=" + Date.now();
-let logoReady = false;
-logo.onload = () => (logoReady = true);
+let ready = false;
+logo.onload = () => ready = true;
 
-// ----------------------------------
 // Player
-// ----------------------------------
-const player = {
-  x: 150,
-  y: 150,
+const p = {
+  x: 120,
+  y: 120,
   w: 260,
   h: 130,
   vx: 4,
-  vy: 3.2,
+  vy: 4,
+  minSpeed: 3,
+  maxSpeed: 10,
   drag: 0.94,
-  tapAccel: 2.6,
-  minSpeed: 3.1,
-  maxSpeed: 10
+  accel: 2
 };
 
-// ----------------------------------
-// Stars
-// ----------------------------------
-const STAR_COUNT = 130;
-const stars = [];
-
-for (let i = 0; i < STAR_COUNT; i++) {
-  stars.push({
-    x: Math.random() * W,
-    y: Math.random() * H,
-    size: Math.random() * 1.5 + 0.4,
-    speed: Math.random() * 0.4 + 0.05
-  });
-}
-
-function updateStars() {
-  for (const s of stars) {
-    s.y += s.speed;
-    if (s.y > H) {
-      s.x = Math.random() * W;
-      s.y = -5;
-    }
-  }
-}
-
-function drawStars() {
-  ctx.fillStyle = "#000";
-  ctx.fillRect(0,0,W,H);
-
-  ctx.fillStyle = "#88dff7";
-  for (const s of stars) {
-    ctx.fillRect(s.x, s.y, s.size, s.size);
-  }
-}
-
-// ----------------------------------
-// Chrome Trail
-// ----------------------------------
+// Chrome trail
 const trail = [];
-const MAX_TRAIL = 25;
+const MAX_TRAIL = 40;
 
-function addTrail() {
-  const cx = player.x + player.w/2;
-  const cy = player.y + player.h/2;
+// Update physics
+function update(){
+  p.vx *= p.drag;
+  p.vy *= p.drag;
+
+  let speed = Math.sqrt(p.vx*p.vx + p.vy*p.vy);
+  if(speed < p.minSpeed){
+    const f = p.minSpeed / speed;
+    p.vx *= f;
+    p.vy *= f;
+  }
+  if(speed > p.maxSpeed){
+    const f = p.maxSpeed / speed;
+    p.vx *= f;
+    p.vy *= f;
+  }
+
+  p.x += p.vx;
+  p.y += p.vy;
+
+  if(p.x <= 0 || p.x + p.w >= W) p.vx *= -1;
+  if(p.y <= 0 || p.y + p.h >= H) p.vy *= -1;
+
+  p.x = Math.min(Math.max(p.x,0), W - p.w);
+  p.y = Math.min(Math.max(p.y,0), H - p.h);
+
+  const cx = p.x + p.w/2;
+  const cy = p.y + p.h/2;
 
   trail.unshift({ x: cx, y: cy });
-  if (trail.length > MAX_TRAIL) trail.pop();
+  if(trail.length > MAX_TRAIL) trail.pop();
 }
 
-function drawTrail() {
+// Draw chrome trail
+function drawTrail(){
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
 
-  for (let i = 0; i < trail.length; i++) {
-    const p = trail[i];
-
-    const t = 1 - i / MAX_TRAIL;
-    const alpha = t * 0.18;
-    const width = t * 10;
-
-    ctx.strokeStyle = `rgba(150,200,255,${alpha})`;
-    ctx.lineWidth = width;
-
-    if (i < trail.length - 1) {
-      const p2 = trail[i+1];
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y);
-      ctx.lineTo(p2.x, p2.y);
-      ctx.stroke();
-    }
+  for(let i=0;i<trail.length-1;i++){
+    const a = trail[i];
+    const b = trail[i+1];
+    const t = 1 - i / trail.length;
+    
+    ctx.lineWidth = 6 * t;
+    ctx.strokeStyle = `rgba(120,200,255,${0.15*t})`;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
   }
 
   ctx.restore();
 }
 
-// ----------------------------------
-// Player Movement
-// ----------------------------------
-function updatePlayer() {
-  player.vx *= player.drag;
-  player.vy *= player.drag;
-
-  let speed = Math.sqrt(player.vx * player.vx + player.vy * player.vy);
-
-  if (speed < player.minSpeed) {
-    const f = player.minSpeed / (speed || 1);
-    player.vx *= f;
-    player.vy *= f;
-  }
-  if (speed > player.maxSpeed) {
-    const f = player.maxSpeed / speed;
-    player.vx *= f;
-    player.vy *= f;
-  }
-
-  player.x += player.vx;
-  player.y += player.vy;
-
-  if (player.x <= 0 || player.x + player.w >= W) player.vx *= -1;
-  if (player.y <= 0 || player.y + player.h >= H) player.vy *= -1;
-
-  player.x = Math.max(0, Math.min(player.x, W - player.w));
-  player.y = Math.max(0, Math.min(player.y, H - player.h));
-
-  addTrail();
+// Draw player
+function drawPlayer(){
+  if(!ready) return;
+  ctx.drawImage(logo, p.x, p.y, p.w, p.h);
 }
 
-// ----------------------------------
-// Draw Player
-// ----------------------------------
-function drawPlayer() {
-  if (!logoReady) return;
-  ctx.drawImage(logo, player.x, player.y, player.w, player.h);
-}
-
-// ----------------------------------
 // Loop
-// ----------------------------------
-function loop() {
-  drawStars();
-  updatePlayer();
+function loop(){
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0,0,W,H);
+
+  update();
   drawTrail();
   drawPlayer();
+
   requestAnimationFrame(loop);
 }
 loop();
 
-// ----------------------------------
-// Touch Controls
-// ----------------------------------
+// Touch accel
 canvas.addEventListener("touchstart", accelerate);
 canvas.addEventListener("touchmove", accelerate);
 
-function accelerate(e) {
+function accelerate(e){
   e.preventDefault();
   const t = e.touches[0];
-
   const tx = t.clientX;
   const ty = t.clientY;
 
-  const cx = player.x + player.w/2;
-  const cy = player.y + player.h/2;
+  const cx = p.x + p.w/2;
+  const cy = p.y + p.h/2;
 
   let dx = tx - cx;
   let dy = ty - cy;
 
-  const d = Math.sqrt(dx * dx + dy * dy);
-  if (d > 0) { dx /= d; dy /= d; }
+  const d = Math.sqrt(dx*dx + dy*dy);
+  if(d > 0){
+    dx /= d;
+    dy /= d;
+  }
 
-  player.vx += dx * player.tapAccel;
-  player.vy += dy * player.tapAccel;
+  p.vx += dx * p.accel;
+  p.vy += dy * p.accel;
 }
 </script>
 
