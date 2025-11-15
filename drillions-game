@@ -372,18 +372,17 @@ function loop() {
 
   updatePlayer();
   updateParticles();
-
   drawGhostTrail();
   drawParticles();
   drawPlayer();
 
-  // NEW FEATURES
   updateAsteroids();
   checkAsteroidCollisions();
   drawAsteroids();
 
   updateExplosion();
   drawExplosion();
+
   drawGameOver();
 
   requestAnimationFrame(loop);
