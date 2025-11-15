@@ -1,447 +1,65 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>DRILLIONS – SMOOTH FAST EDITION</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #000;
-    }
-    #gameCanvas {
-      width: 100vw;
-      height: 100vh;
-      display: block;
-      background: #000;
-      touch-action: none;
-    }
-    .hud {
-      position: fixed;
-      top: 16px;
-      left: 16px;
-      font-family: system-ui, sans-serif;
-      color: #8af3ff;
-      text-shadow: 0 0 6px #00eaff;
-      font-size: 15px;
-      z-index: 10;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>DRILLIONS DEBUG MODE</title>
+<style>
+  body { margin:0; background:#000; color:#0ff; font-family:Arial; }
+  #errorBox {
+    white-space:pre-wrap;
+    padding:20px;
+    font-size:18px;
+    color:#0ff;
+  }
+</style>
 </head>
-
 <body>
 
-<div class="hud">DRILLIONS – SMOOTH FAST</div>
-<canvas id="gameCanvas"></canvas>
+<div id="errorBox">DEBUG: Loading…</div>
+<canvas id="game"></canvas>
 
 <script>
-// -------------------------------------
-// Canvas Setup
-// -------------------------------------
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+const errorBox = document.getElementById("errorBox");
 
-let W, H;
-function resize() {
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
-  initStars();
-}
-resize();
-addEventListener("resize", resize);
-
-// -------------------------------------
-// Force-Load Logo (fix Safari cache)
-// -------------------------------------
-const logo = new Image();
-logo.src = "drillions-pixel-logo.png?v=" + Date.now();
-let logoReady = false;
-logo.onload = () => logoReady = true;
-
-// -------------------------------------
-// Player — SMOOTH FAST SETTINGS
-// -------------------------------------
-const player = {
-  x: 150,
-  y: 150,
-  w: 260,
-  h: 130,
-  vx: 4.2,    // smooth fast base
-  vy: 3.8,
-  drag: 0.965, // smoother glide
-  tapAccel: 2.2,
-  minSpeed: 3.2,
-  maxSpeed: 9.8
+// FORCE error catch globally
+window.onerror = function(msg, url, line, col, err) {
+  errorBox.textContent += `\n\n❌ ERROR:\n${msg}\nLine: ${line}\n${err}`;
 };
 
-// -------------------------------------
-// Trails, Particles, Followers
-// -------------------------------------
-const ghostTrail = [];
-const MAX_GHOSTS = 6;
+// Canvas setup
+try {
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
 
-const beamTrail = [];
-const MAX_BEAM_POINTS = 40;
-
-const particles = [];
-const MAX_PARTICLES = 120;
-
-const followers = [];
-const FOLLOWER_COUNT = 4;
-
-// initialize followers
-function initFollowers() {
-  followers.length = 0;
-  const cx = player.x + player.w/2;
-  const cy = player.y + player.h/2;
-  for (let i = 0; i < FOLLOWER_COUNT; i++) {
-    followers.push({ x: cx, y: cy });
+  function resize(){
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
   }
-}
-initFollowers();
+  resize();
 
-// -------------------------------------
-// Chrome Starfield (smooth)
-// -------------------------------------
-const STAR_COUNT = 150;
-let stars = [];
+  // Load image
+  const img = new Image();
+  img.src = "drillions-pixel-logo.png?v=" + Date.now();
+  img.onload = () => {
+    errorBox.textContent += "\n\nImage loaded ✔️";
+  };
+  img.onerror = () => {
+    errorBox.textContent += "\n\n❌ IMAGE FAILED TO LOAD";
+  };
 
-function initStars() {
-  stars = [];
-  for (let i = 0; i < STAR_COUNT; i++) {
-    stars.push({
-      x: Math.random() * W,
-      y: Math.random() * H,
-      size: Math.random() * 1.6 + 0.4,
-      speed: Math.random() * 0.4 + 0.08,  // smoother
-      tint: Math.random() < 0.5 ? "cool" : "warm"
-    });
-  }
-}
-
-function updateStars() {
-  for (const s of stars) {
-    s.y += s.speed;
-    if (s.y > H) {
-      s.y = -4;
-      s.x = Math.random() * W;
+  function loop(){
+    try {
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(img, 50, 50, 200, 100);
+    } catch (e) {
+      errorBox.textContent += "\n\n❌ LOOP ERROR:\n" + e.message;
     }
+    requestAnimationFrame(loop);
   }
-}
-
-function drawStars() {
-  ctx.globalAlpha = 0.8;
-  for (const s of stars) {
-    ctx.fillStyle = s.tint === "cool" ? "#a7f3ff" : "#5ddcff";
-    ctx.fillRect(s.x, s.y, s.size, s.size);
-  }
-  ctx.globalAlpha = 1;
-}
-
-// -------------------------------------
-// Soft Shake & Flash
-// -------------------------------------
-let shakeTime = 0;
-let shakeIntensity = 0;
-let flashAlpha = 0;
-
-function startShake(intensity = 6, duration = 8) {
-  shakeTime = duration;
-  shakeIntensity = intensity;
-  flashAlpha = 0.22;
-}
-
-// -------------------------------------
-// Player Physics (smooth)
-// -------------------------------------
-function updatePlayer() {
-  player.vx *= player.drag;
-  player.vy *= player.drag;
-
-  let speed = Math.sqrt(player.vx**2 + player.vy**2);
-
-  // smooth minimum speed
-  if (speed < player.minSpeed) {
-    const f = player.minSpeed / (speed || 1);
-    player.vx *= f * 0.7;
-    player.vy *= f * 0.7;
-  }
-
-  // smooth max clamp
-  if (speed > player.maxSpeed) {
-    const f = player.maxSpeed / speed;
-    player.vx *= f;
-    player.vy *= f;
-  }
-
-  player.x += player.vx;
-  player.y += player.vy;
-
-  // bounce — smoother angle
-  let hitX = false;
-  let hitY = false;
-
-  if (player.x <= 0 || player.x + player.w >= W) {
-    player.vx *= -1;
-    hitX = true;
-  }
-  if (player.y <= 0 || player.y + player.h >= H) {
-    player.vy *= -1;
-    hitY = true;
-  }
-
-  // clamp
-  player.x = Math.min(Math.max(player.x, 0), W - player.w);
-  player.y = Math.min(Math.max(player.y, 0), H - player.h);
-
-  // center pos
-  const cx = player.x + player.w/2;
-  const cy = player.y + player.h/2;
-
-  // ghost
-  ghostTrail.unshift({ x: cx, y: cy });
-  if (ghostTrail.length > MAX_GHOSTS)
-    ghostTrail.pop();
-
-  // beam
-  beamTrail.unshift({ x: cx, y: cy });
-  if (beamTrail.length > MAX_BEAM_POINTS)
-    beamTrail.pop();
-
-  // chrome sparks
-  spawnTrailSparks();
-
-  // smooth bounce FX
-  if (hitX || hitY) startShake(6, 8);
-}
-
-// -------------------------------------
-// Followers (smooth glide)
-// -------------------------------------
-function updateFollowers() {
-  const tx = player.x + player.w/2;
-  const ty = player.y + player.h/2;
-
-  for (let i = 0; i < followers.length; i++) {
-    const f = followers[i];
-    const target = (i === 0)
-      ? { x: tx, y: ty }
-      : followers[i - 1];
-
-    // smoother interpolation
-    f.x += (target.x - f.x) * 0.12;
-    f.y += (target.y - f.y) * 0.12;
-  }
-}
-
-function drawFollowers() {
-  if (!logoReady) return;
-  for (let i = followers.length - 1; i >= 0; i--) {
-    const f = followers[i];
-    const t = (i + 1) / (followers.length + 1);
-    
-    const scale = 0.5 + t * 0.25;
-    const alpha = 0.13 * t;
-
-    const w = player.w * scale;
-    const h = player.h * scale;
-    const x = f.x - w/2;
-    const y = f.y - h/2;
-
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.drawImage(logo, x, y, w, h);
-    ctx.restore();
-  }
-}
-
-// -------------------------------------
-// Ghost Trail (smooth)
-// -------------------------------------
-function drawGhostTrail() {
-  if (!logoReady) return;
-
-  for (let i = ghostTrail.length - 1; i >= 0; i--) {
-    const g = ghostTrail[i];
-
-    const t = (i + 1) / (ghostTrail.length + 1);
-    const scale = 0.72 + t * 0.20;
-    const alpha = 0.05 + t * 0.10;
-
-    const w = player.w * scale;
-    const h = player.h * scale;
-    const x = g.x - w/2;
-    const y = g.y - h/2;
-
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.drawImage(logo, x, y, w, h);
-    ctx.restore();
-  }
-}
-
-// -------------------------------------
-// Hyper Beam Trail (smooth)
-// -------------------------------------
-function drawBeamTrail() {
-  if (beamTrail.length < 2) return;
-
-  ctx.save();
-  ctx.globalCompositeOperation = "lighter";
-
-  for (let i = 0; i < beamTrail.length - 1; i++) {
-    const p0 = beamTrail[i];
-    const p1 = beamTrail[i+1];
-
-    const t = 1 - i / (beamTrail.length - 1);
-    const width = 9 * t;
-    const alpha = 0.06 + 0.18 * t;
-
-    const g = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y);
-    g.addColorStop(0, `rgba(190,240,255,${alpha})`);
-    g.addColorStop(1, `rgba(120,170,255,${alpha})`);
-
-    ctx.strokeStyle = g;
-    ctx.lineWidth = width;
-    ctx.beginPath();
-    ctx.moveTo(p0.x, p0.y);
-    ctx.lineTo(p1.x, p1.y);
-    ctx.stroke();
-  }
-
-  ctx.restore();
-}
-
-// -------------------------------------
-// Chrome Sparks (cleaner)
-// -------------------------------------
-function spawnTrailSparks() {
-  const speed = Math.sqrt(player.vx**2 + player.vy**2);
-  const intensity = Math.min(1, speed / player.maxSpeed);
-
-  const count = 1 + Math.floor(intensity * 1.5);
-  const cx = player.x + player.w/2;
-  const cy = player.y + player.h/2;
-
-  for (let i = 0; i < count; i++) {
-    if (particles.length >= MAX_PARTICLES) break;
-
-    particles.push({
-      x: cx,
-      y: cy,
-      vx: (Math.random() - 0.5) * 0.8,
-      vy: (Math.random() - 0.5) * 0.8,
-      alpha: 0.28,
-      life: 30 + Math.random() * 20,
-      size: 1.8 + Math.random() * 2,
-    });
-  }
-}
-
-function updateParticles() {
-  for (let i = particles.length - 1; i >= 0; i--) {
-    const p = particles[i];
-    p.x += p.vx;
-    p.y += p.vy;
-    p.alpha *= 0.96;
-    p.life--;
-    if (p.life <= 0 || p.alpha <= 0.05) particles.splice(i, 1);
-  }
-}
-
-function drawParticles() {
-  ctx.save();
-  ctx.globalCompositeOperation = "lighter";
-  for (const p of particles) {
-    ctx.fillStyle = `rgba(200,230,255,${p.alpha})`;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
-}
-
-// -------------------------------------
-// Draw Player
-// -------------------------------------
-function drawPlayer() {
-  if (!logoReady) return;
-  ctx.drawImage(logo, player.x, player.y, player.w, player.h);
-}
-
-// -------------------------------------
-// Main Loop
-// -------------------------------------
-function loop() {
-  ctx.fillStyle = "#000";
-  ctx.fillRect(0, 0, W, H);
-
-  updateStars();
-  updatePlayer();
-  updateFollowers();
-  updateParticles();
-
-  ctx.save();
-
-  // soft shake
-  if (shakeTime > 0) {
-    shakeTime--;
-    const sx = (Math.random() - 0.5) * shakeIntensity;
-    const sy = (Math.random() - 0.5) * shakeIntensity;
-    ctx.translate(sx, sy);
-    shakeIntensity *= 0.9;
-  }
-
-  drawStars();
-  drawBeamTrail();
-  drawGhostTrail();
-  drawFollowers();
-  drawParticles();
-  drawPlayer();
-
-  ctx.restore();
-
-  // flash
-  if (flashAlpha > 0) {
-    ctx.save();
-    ctx.fillStyle = `rgba(190,220,255,${flashAlpha})`;
-    ctx.fillRect(0, 0, W, H);
-    ctx.restore();
-    flashAlpha *= 0.85;
-  }
-
-  requestAnimationFrame(loop);
-}
-loop();
-
-// -------------------------------------
-// Touch Controls
-// -------------------------------------
-canvas.addEventListener("touchstart", accelerate);
-canvas.addEventListener("touchmove", accelerate);
-
-function accelerate(e) {
-  e.preventDefault();
-  const t = e.touches[0];
-  const tx = t.clientX;
-  const ty = t.clientY;
-
-  const cx = player.x + player.w/2;
-  const cy = player.y + player.h/2;
-
-  let dx = tx - cx;
-  let dy = ty - cy;
-  const d = Math.sqrt(dx*dx + dy*dy);
-
-  if (d > 0) {
-    dx /= d;
-    dy /= d;
-  }
-
-  player.vx += dx * player.tapAccel;
-  player.vy += dy * player.tapAccel;
+  loop();
+} catch(e){
+  errorBox.textContent += "\n\n❌ SETUP ERROR:\n" + e.message;
 }
 </script>
 
