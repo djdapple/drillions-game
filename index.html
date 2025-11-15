@@ -25,6 +25,11 @@
 
 <canvas id="gameCanvas"></canvas>
 
+<!-- 🎵 SOUND EFFECTS -->
+<audio id="boostSound" src="drillions_boost.wav" preload="auto"></audio>
+<audio id="hitSound" src="drillions_hit.wav" preload="auto"></audio>
+<audio id="explodeSound" src="drillions_explode.wav" preload="auto"></audio>
+
 <script>
 // --------------------------------------
 // Canvas Setup
@@ -39,6 +44,19 @@ function resize() {
 }
 resize();
 window.addEventListener("resize", resize);
+
+// --------------------------------------
+// Sounds
+// --------------------------------------
+const boostSound = document.getElementById("boostSound");
+const hitSound = document.getElementById("hitSound");       // reserved for future
+const explodeSound = document.getElementById("explodeSound");
+
+// Make sure sounds can play instantly
+function playSound(sfx) {
+  sfx.currentTime = 0;
+  sfx.play().catch(() => {}); // ignore gesture restrictions
+}
 
 // --------------------------------------
 // Player Logo
@@ -223,9 +241,9 @@ function drawParticles() {
   ctx.globalCompositeOperation = "lighter";
 
   particles.forEach(p => {
-    ctx.fillStyle = p.tint === "cool"
-      ? `rgba(180,230,255,${p.alpha})`
-      : `rgba(230,230,240,${p.alpha})`;
+    ctx.fillStyle = p.tint === "cool" ?
+      `rgba(180,230,255,${p.alpha})` :
+      `rgba(230,230,240,${p.alpha})`;
 
     ctx.beginPath();
     ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
@@ -233,14 +251,6 @@ function drawParticles() {
   });
 
   ctx.restore();
-}
-
-// --------------------------------------
-// PLAYER DRAW FUNCTION (THE FIX)
-// --------------------------------------
-function drawPlayer() {
-  if (!logoReady) return;
-  ctx.drawImage(logo, player.x, player.y, player.w, player.h);
 }
 
 // ======================================================================
@@ -263,6 +273,7 @@ setInterval(() => {
   });
 }, 1200);
 
+// Update asteroid movement
 function updateAsteroids() {
   if (gameOver) return;
   for (let a of asteroids) {
@@ -270,6 +281,7 @@ function updateAsteroids() {
   }
 }
 
+// Draw asteroids
 function drawAsteroids() {
   ctx.save();
   ctx.imageSmoothingEnabled = false;
@@ -285,6 +297,7 @@ function drawAsteroids() {
   ctx.restore();
 }
 
+// Collision check
 function checkAsteroidCollisions() {
   if (gameOver) return;
 
@@ -301,11 +314,13 @@ function checkAsteroidCollisions() {
       py + ph > a.y
     ) {
       triggerExplosion(px + pw/2, py + ph/2);
+      playSound(explodeSound);
       gameOver = true;
     }
   }
 }
 
+// Explosion particles
 function triggerExplosion(cx, cy) {
   for (let i = 0; i < 60; i++) {
     explosionParticles.push({
@@ -340,6 +355,7 @@ function drawExplosion() {
   ctx.restore();
 }
 
+// GAME OVER SCREEN
 function drawGameOver() {
   if (!gameOver) return;
 
@@ -357,6 +373,7 @@ function drawGameOver() {
   ctx.restore();
 }
 
+// Restart
 canvas.addEventListener("touchstart", () => {
   if (!gameOver) return;
   location.reload();
@@ -376,23 +393,19 @@ function loop() {
   updateParticles();
   drawGhostTrail();
   drawParticles();
-  drawPlayer();
-
+  drawAsteroids();
   updateAsteroids();
   checkAsteroidCollisions();
-  drawAsteroids();
-
   updateExplosion();
   drawExplosion();
-
   drawGameOver();
-
+  
   requestAnimationFrame(loop);
 }
 loop();
 
 // --------------------------------------
-// Touch Controls
+// Touch Accelerate
 // --------------------------------------
 canvas.addEventListener("touchstart", accelerate);
 canvas.addEventListener("touchmove", accelerate);
@@ -419,6 +432,8 @@ function accelerate(e) {
 
   player.vx += dx * player.tapAccel;
   player.vy += dy * player.tapAccel;
+
+  playSound(boostSound);
 }
 </script>
 
