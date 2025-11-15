@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DRILLIONS – CHROME + ASTEROIDS</title>
+  <title>DRILLIONS — CHROME + ASTEROIDS</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
@@ -21,19 +21,13 @@
 </head>
 <body>
 
-<div class="hud">DRILLIONS – CHROME MODE</div>
-
+<div class="hud">DRILLIONS — CHROME MODE</div>
 <canvas id="gameCanvas"></canvas>
 
-<!-- 🎵 SOUND EFFECTS -->
-<audio id="boostSound" src="drillions_boost.wav" preload="auto"></audio>
-<audio id="hitSound" src="drillions_hit.wav" preload="auto"></audio>
-<audio id="explodeSound" src="drillions_explode.wav" preload="auto"></audio>
-
 <script>
-// --------------------------------------
-// Canvas Setup
-// --------------------------------------
+// -------------------------------------------------------
+// Canvas
+// -------------------------------------------------------
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
@@ -45,30 +39,17 @@ function resize() {
 resize();
 window.addEventListener("resize", resize);
 
-// --------------------------------------
-// Sounds
-// --------------------------------------
-const boostSound = document.getElementById("boostSound");
-const hitSound = document.getElementById("hitSound");       // reserved for future
-const explodeSound = document.getElementById("explodeSound");
-
-// Make sure sounds can play instantly
-function playSound(sfx) {
-  sfx.currentTime = 0;
-  sfx.play().catch(() => {}); // ignore gesture restrictions
-}
-
-// --------------------------------------
-// Player Logo
-// --------------------------------------
+// -------------------------------------------------------
+// Logo
+// -------------------------------------------------------
 const logo = new Image();
-logo.src = "drillions-pixel-logo.png?v=" + Date.now(); 
+logo.src = "drillions-pixel-logo.png?v=" + Date.now();
 let logoReady = false;
 logo.onload = () => logoReady = true;
 
-// --------------------------------------
-// Player Object
-// --------------------------------------
+// -------------------------------------------------------
+// Player
+// -------------------------------------------------------
 const player = {
   x: 150, y: 150,
   w: 300, h: 150,
@@ -79,21 +60,21 @@ const player = {
   maxSpeed: 13
 };
 
-// --------------------------------------
-// Ghost Trail
-// --------------------------------------
+// -------------------------------------------------------
+// Ghost trail
+// -------------------------------------------------------
 const ghostTrail = [];
 const MAX_GHOSTS = 6;
 
-// --------------------------------------
-// Chrome Sparks
-// --------------------------------------
+// -------------------------------------------------------
+// Sparks
+// -------------------------------------------------------
 const particles = [];
 const MAX_PARTICLES = 120;
 
-// --------------------------------------
-// Starfield
-// --------------------------------------
+// -------------------------------------------------------
+// Stars
+// -------------------------------------------------------
 const STAR_COUNT = 180;
 let stars = [];
 
@@ -122,31 +103,30 @@ function updateStars() {
 }
 
 function drawStars() {
+  ctx.save();
   for (const s of stars) {
     ctx.fillStyle = s.tint === "cool" ? "#a7f3ff" : "#5ddcff";
     ctx.globalAlpha = 0.8;
     ctx.fillRect(s.x, s.y, s.size, s.size);
   }
-  ctx.globalAlpha = 1.0;
+  ctx.restore();
 }
 
-// --------------------------------------
-// Player Physics
-// --------------------------------------
+// -------------------------------------------------------
+// Player update
+// -------------------------------------------------------
 function updatePlayer() {
   if (gameOver) return;
 
   player.vx *= player.drag;
   player.vy *= player.drag;
 
-  let speed = Math.sqrt(player.vx**2 + player.vy**2);
-
+  let speed = Math.sqrt(player.vx ** 2 + player.vy ** 2);
   if (speed < player.minSpeed) {
     const f = player.minSpeed / (speed || 1);
     player.vx *= f;
     player.vy *= f;
   }
-
   if (speed > player.maxSpeed) {
     const f = player.maxSpeed / speed;
     player.vx *= f;
@@ -162,19 +142,22 @@ function updatePlayer() {
   player.x = Math.max(0, Math.min(W - player.w, player.x));
   player.y = Math.max(0, Math.min(H - player.h, player.y));
 
-  ghostTrail.unshift({ 
-    x: player.x + player.w/2,
-    y: player.y + player.h/2
+  ghostTrail.unshift({
+    x: player.x + player.w / 2,
+    y: player.y + player.h / 2
   });
   if (ghostTrail.length > MAX_GHOSTS) ghostTrail.pop();
 
   spawnTrailSparks();
 }
 
-// --------------------------------------
+// -------------------------------------------------------
 // Ghost Trail Render
-// --------------------------------------
+// -------------------------------------------------------
 function drawGhostTrail() {
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+
   for (let i = ghostTrail.length - 1; i >= 0; i--) {
     const g = ghostTrail[i];
     const t = (i + 1) / (ghostTrail.length + 1);
@@ -183,26 +166,38 @@ function drawGhostTrail() {
 
     const w = player.w * scale;
     const h = player.h * scale;
-    const x = g.x - w/2;
-    const y = g.y - h/2;
+    const x = g.x - w / 2;
+    const y = g.y - h / 2;
 
-    ctx.save();
     ctx.globalAlpha = alpha;
     ctx.drawImage(logo, x, y, w, h);
-    ctx.restore();
   }
+
+  ctx.restore();
 }
 
-// --------------------------------------
-// Chrome Sparks
-// --------------------------------------
+// -------------------------------------------------------
+// Fix PNG fading: reset alpha and smoothing before drawing
+// -------------------------------------------------------
+function drawPlayer() {
+  if (!logoReady) return;
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(logo, player.x, player.y, player.w, player.h);
+  ctx.restore();
+}
+
+// -------------------------------------------------------
+// Sparks
+// -------------------------------------------------------
 function spawnTrailSparks() {
-  const speed = Math.sqrt(player.vx**2 + player.vy**2);
+  const speed = Math.sqrt(player.vx ** 2 + player.vy ** 2);
   const intensity = Math.min(1, speed / player.maxSpeed);
   const count = 1 + Math.floor(intensity * 2);
 
-  const cx = player.x + player.w/2;
-  const cy = player.y + player.h/2;
+  const cx = player.x + player.w / 2;
+  const cy = player.y + player.h / 2;
 
   for (let i = 0; i < count; i++) {
     if (particles.length >= MAX_PARTICLES) break;
@@ -212,11 +207,11 @@ function spawnTrailSparks() {
 
     particles.push({
       x: cx, y: cy,
-      vx: Math.cos(angle)*spd,
-      vy: Math.sin(angle)*spd,
-      alpha: 0.4 + Math.random()*0.2,
-      life: 40 + Math.random()*20,
-      size: 2 + Math.random()*3,
+      vx: Math.cos(angle) * spd,
+      vy: Math.sin(angle) * spd,
+      alpha: 0.4 + Math.random() * 0.2,
+      life: 40 + Math.random() * 20,
+      size: 2 + Math.random() * 3,
       tint: Math.random() < 0.5 ? "cool" : "warm"
     });
   }
@@ -240,64 +235,68 @@ function drawParticles() {
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
 
-  particles.forEach(p => {
-    ctx.fillStyle = p.tint === "cool" ?
-      `rgba(180,230,255,${p.alpha})` :
-      `rgba(230,230,240,${p.alpha})`;
-
+  for (const p of particles) {
+    ctx.fillStyle = p.tint === "cool"
+      ? `rgba(180,230,255,${p.alpha})`
+      : `rgba(230,230,240,${p.alpha})`;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
     ctx.fill();
-  });
+  }
 
   ctx.restore();
 }
 
-// ======================================================================
-// ASTEROIDS + COLLISION + GAME OVER
-// ======================================================================
+// -------------------------------------------------------
+// Asteroids
+// -------------------------------------------------------
 const asteroids = [];
-const ASTEROID_SIZE = 50;
-const ASTEROID_SPEED = 2;
+const ASTEROID_SIZE = 55;
 let gameOver = false;
 let explosionParticles = [];
 
-// Spawn asteroids
 setInterval(() => {
   if (gameOver) return;
   asteroids.push({
     x: Math.random() * (W - ASTEROID_SIZE),
-    y: -60,
+    y: -80,
     size: ASTEROID_SIZE,
-    speed: ASTEROID_SPEED + Math.random() * 2
+    speed: 3 + Math.random() * 2
   });
-}, 1200);
+}, 900);
 
-// Update asteroid movement
-function updateAsteroids() {
-  if (gameOver) return;
-  for (let a of asteroids) {
-    a.y += a.speed;
-  }
-}
-
-// Draw asteroids
+// Pixel asteroid art
 function drawAsteroids() {
   ctx.save();
   ctx.imageSmoothingEnabled = false;
 
   for (let a of asteroids) {
-    ctx.fillStyle = "#444";
-    ctx.fillRect(a.x, a.y, a.size, a.size);
+    const s = a.size;
 
-    ctx.fillStyle = "#888";
-    ctx.fillRect(a.x + 8, a.y + 8, a.size - 16, a.size - 16);
+    ctx.fillStyle = "#2a2a2a";
+    ctx.fillRect(a.x, a.y, s, s);
+
+    ctx.fillStyle = "#555";
+    ctx.fillRect(a.x + s * 0.15, a.y + s * 0.15, s * 0.6, s * 0.6);
+
+    ctx.fillStyle = "#777";
+    ctx.fillRect(a.x + s * 0.2, a.y + s * 0.6, s * 0.25, s * 0.25);
+
+    ctx.fillStyle = "#666";
+    ctx.fillRect(a.x + s * 0.55, a.y + s * 0.25, s * 0.2, s * 0.2);
   }
 
   ctx.restore();
 }
 
-// Collision check
+// Movement
+function updateAsteroids() {
+  for (let a of asteroids) a.y += a.speed;
+}
+
+// -------------------------------------------------------
+// Instant-feel Collision
+// -------------------------------------------------------
 function checkAsteroidCollisions() {
   if (gameOver) return;
 
@@ -307,20 +306,25 @@ function checkAsteroidCollisions() {
   const ph = player.h;
 
   for (let a of asteroids) {
+
+    const hitPadding = 20;
+
     if (
-      px < a.x + a.size &&
-      px + pw > a.x &&
-      py < a.y + a.size &&
-      py + ph > a.y
+      px < a.x + a.size - hitPadding &&
+      px + pw > a.x + hitPadding &&
+      py < a.y + a.size - hitPadding &&
+      py + ph > a.y + hitPadding
     ) {
-      triggerExplosion(px + pw/2, py + ph/2);
-      playSound(explodeSound);
+      triggerExplosion(px + pw / 2, py + ph / 2);
       gameOver = true;
+      return;
     }
   }
 }
 
-// Explosion particles
+// -------------------------------------------------------
+// Explosion
+// -------------------------------------------------------
 function triggerExplosion(cx, cy) {
   for (let i = 0; i < 60; i++) {
     explosionParticles.push({
@@ -355,33 +359,34 @@ function drawExplosion() {
   ctx.restore();
 }
 
-// GAME OVER SCREEN
+// -------------------------------------------------------
+// Game Over Screen
+// -------------------------------------------------------
 function drawGameOver() {
   if (!gameOver) return;
 
   ctx.save();
   ctx.fillStyle = "rgba(0,0,0,0.7)";
-  ctx.fillRect(0,0,W,H);
+  ctx.fillRect(0, 0, W, H);
 
   ctx.fillStyle = "#8af3ff";
   ctx.textAlign = "center";
   ctx.font = "48px Arial";
-  ctx.fillText("DRILLIONS DESTROYED", W/2, H/2 - 20);
+  ctx.fillText("DRILLIONS DESTROYED", W / 2, H / 2 - 20);
 
   ctx.font = "28px Arial";
-  ctx.fillText("Tap to Restart", W/2, H/2 + 40);
+  ctx.fillText("Tap to Restart", W / 2, H / 2 + 40);
   ctx.restore();
 }
 
-// Restart
 canvas.addEventListener("touchstart", () => {
   if (!gameOver) return;
   location.reload();
 });
 
-// ======================================================================
-// LOOP
-// ======================================================================
+// -------------------------------------------------------
+// Loop
+// -------------------------------------------------------
 function loop() {
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, W, H);
@@ -391,22 +396,26 @@ function loop() {
 
   updatePlayer();
   updateParticles();
+
   drawGhostTrail();
   drawParticles();
-  drawAsteroids();
+  drawPlayer();
+
   updateAsteroids();
   checkAsteroidCollisions();
+  drawAsteroids();
+
   updateExplosion();
   drawExplosion();
   drawGameOver();
-  
+
   requestAnimationFrame(loop);
 }
 loop();
 
-// --------------------------------------
-// Touch Accelerate
-// --------------------------------------
+// -------------------------------------------------------
+// Touch Control
+// -------------------------------------------------------
 canvas.addEventListener("touchstart", accelerate);
 canvas.addEventListener("touchmove", accelerate);
 
@@ -418,12 +427,12 @@ function accelerate(e) {
   const tx = t.clientX;
   const ty = t.clientY;
 
-  const cx = player.x + player.w/2;
-  const cy = player.y + player.h/2;
+  const cx = player.x + player.w / 2;
+  const cy = player.y + player.h / 2;
 
   let dx = tx - cx;
   let dy = ty - cy;
-  const d = Math.sqrt(dx*dx + dy*dy);
+  const d = Math.sqrt(dx * dx + dy * dy);
 
   if (d > 0) {
     dx /= d;
@@ -432,8 +441,6 @@ function accelerate(e) {
 
   player.vx += dx * player.tapAccel;
   player.vy += dy * player.tapAccel;
-
-  playSound(boostSound);
 }
 </script>
 
