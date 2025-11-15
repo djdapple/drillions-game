@@ -23,16 +23,12 @@
 
 <script>
 /* ----------------------------------- */
-/* CANVAS SETUP */
+/* CANVAS */
 /* ----------------------------------- */
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 let W, H;
-
-function resize(){
-    W = canvas.width = innerWidth;
-    H = canvas.height = innerHeight;
-}
+function resize(){ W=canvas.width=innerWidth; H=canvas.height=innerHeight; }
 resize();
 addEventListener("resize", resize);
 
@@ -46,22 +42,24 @@ logo.src = "drillions-pixel-logo.png";
 /* PLAYER */
 /* ----------------------------------- */
 const player = {
-    x:200, y:200,
-    w:260, h:130,
-    vx:5, vy:4,
-    drag:0.92,
-    tapAccel:3,
-    minSpeed:4,
-    maxSpeed:14
+    x: 150,
+    y: 150,
+    w: 160,     // smaller, perfect touch size
+    h: 80,
+    vx: 0,
+    vy: 0,
+    drag: 0.90, // smoother slow-down
+    tapAccel: 1.8,
+    maxSpeed: 7
 };
 
 /* ----------------------------------- */
 /* STARS */
 /* ----------------------------------- */
-let stars = [];
+let stars=[];
 function initStars(){
     stars=[];
-    for(let i=0;i<200;i++){
+    for(let i=0;i<220;i++){
         stars.push({
             x:Math.random()*W,
             y:Math.random()*H,
@@ -74,49 +72,45 @@ initStars();
 
 function updateStars(){
     for(let s of stars){
-        s.y += s.sp;
+        s.y+=s.sp;
         if(s.y>H){s.y=-5;s.x=Math.random()*W;}
     }
 }
 
 function drawStars(){
     ctx.fillStyle="#8af3ff";
-    ctx.globalAlpha=0.6;
-    for(let s of stars){
-        ctx.fillRect(s.x,s.y,s.s,s.s);
-    }
+    ctx.globalAlpha=0.55;
+    for(let s of stars) ctx.fillRect(s.x,s.y,s.s,s.s);
     ctx.globalAlpha=1;
 }
 
 /* ----------------------------------- */
-/* PLAYER UPDATE */
+/* UPDATE PLAYER */
 /* ----------------------------------- */
 function updatePlayer(){
-    player.vx *= player.drag;
-    player.vy *= player.drag;
+    // apply drag
+    player.vx*=player.drag;
+    player.vy*=player.drag;
 
-    let sp = Math.sqrt(player.vx**2 + player.vy**2);
-    if(sp<player.minSpeed){
-        let f = player.minSpeed/(sp||1);
-        player.vx*=f; player.vy*=f;
-    }
+    // clamp speed
+    const sp=Math.sqrt(player.vx**2+player.vy**2);
     if(sp>player.maxSpeed){
-        let f = player.maxSpeed/sp;
+        let f=player.maxSpeed/sp;
         player.vx*=f; player.vy*=f;
     }
 
-    player.x += player.vx;
-    player.y += player.vy;
+    player.x+=player.vx;
+    player.y+=player.vy;
 
-    if(player.x<=0||player.x+player.w>=W) player.vx*=-1;
-    if(player.y<=0||player.y+player.h>=H) player.vy*=-1;
-
-    player.x=Math.max(0,Math.min(W-player.w,player.x));
-    player.y=Math.max(0,Math.min(H-player.h,player.y));
+    // borders
+    if(player.x<0) player.x=0;
+    if(player.y<0) player.y=0;
+    if(player.x+player.w>W) player.x=W-player.w;
+    if(player.y+player.h>H) player.y=H-player.h;
 }
 
 function drawPlayer(){
-    ctx.drawImage(logo,player.x,player.y,player.w,player.h);
+    ctx.drawImage(logo, player.x, player.y, player.w, player.h);
 }
 
 /* ----------------------------------- */
@@ -125,32 +119,33 @@ function drawPlayer(){
 const asteroids=[];
 function spawn(){
     asteroids.push({
-        x:Math.random()*(W-50),
+        x:Math.random()*(W-40),
         y:-60,
-        s:50,
-        sp:3+Math.random()*2
+        s:40,           // slightly smaller
+        sp:2.6+Math.random()*1.4
     });
 }
-setInterval(spawn, 900);
+setInterval(spawn,900);
 
 function updateAsteroids(){
-    for(let a of asteroids){
-        a.y += a.sp;
-    }
+    for(let a of asteroids) a.y+=a.sp;
 }
 
 function drawAsteroids(){
+    ctx.imageSmoothingEnabled=false;
     for(let a of asteroids){
         ctx.fillStyle="#444";
         ctx.fillRect(a.x,a.y,a.s,a.s);
         ctx.fillStyle="#777";
-        ctx.fillRect(a.x+10,a.y+10,a.s-20,a.s-20);
+        ctx.fillRect(a.x+6,a.y+6,a.s-12,a.s-12);
     }
 }
 
 /* ----------------------------------- */
 /* COLLISION */
 /* ----------------------------------- */
+let dead=false;
+
 function checkHit(){
     for(let a of asteroids){
         if(
@@ -159,32 +154,25 @@ function checkHit(){
             player.y < a.y+a.s &&
             player.y+player.h > a.y
         ){
-            endGame();
+            dead=true;
         }
     }
 }
 
 /* ----------------------------------- */
-/* GAME OVER */
-/* ----------------------------------- */
-let dead=false;
-
-function endGame(){
-    dead=true;
-}
-
-/* ----------------------------------- */
 /* TIMER */
 /* ----------------------------------- */
-let startTime = performance.now();
-let elapsed = 0;
+let startTime=performance.now();
+let elapsed=0;
 
 /* ----------------------------------- */
-/* TOUCH CONTROL */
+/* TOUCH CONTROL (smooth spaceship) */
 /* ----------------------------------- */
-canvas.addEventListener("touchmove", e=>{
+canvas.addEventListener("touchstart", move);
+canvas.addEventListener("touchmove", move);
+
+function move(e){
     if(dead) return;
-
     const t=e.touches[0];
     const tx=t.clientX;
     const ty=t.clientY;
@@ -194,15 +182,16 @@ canvas.addEventListener("touchmove", e=>{
 
     let dx=tx-cx;
     let dy=ty-cy;
+
     let d=Math.sqrt(dx*dx+dy*dy);
     if(d>0){dx/=d;dy/=d;}
 
-    player.vx+=dx*player.tapAccel;
-    player.vy+=dy*player.tapAccel;
-});
+    player.vx += dx * player.tapAccel;
+    player.vy += dy * player.tapAccel;
+}
 
 /* ----------------------------------- */
-/* MAIN LOOP */
+/* LOOP */
 /* ----------------------------------- */
 function loop(){
     ctx.fillStyle="#000";
@@ -212,16 +201,18 @@ function loop(){
     drawStars();
 
     if(!dead){
-        elapsed = performance.now() - startTime;
+        elapsed = (performance.now()-startTime)/1000;
         document.getElementById("timer").innerText =
-            "TIME: "+(elapsed/1000).toFixed(1)+"s";
+          "TIME: " + elapsed.toFixed(1)+"s";
     }
 
     if(!dead){
         updatePlayer();
         drawPlayer();
+
         updateAsteroids();
         drawAsteroids();
+
         checkHit();
     }
 
