@@ -1,59 +1,60 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>DRILLIONS – CHROME MODE</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
-    #gameCanvas { width: 100vw; height: 100vh; display: block; touch-action: none; }
-    
-    .hud {
-      position: fixed;
-      top: 16px;
-      left: 16px;
-      font-family: system-ui, sans-serif;
-      color: #8af3ff;
-      text-shadow: 0 0 8px #00eaff;
-      font-size: 18px;
-      z-index: 10;
-      display: none;
-    }
+<meta charset="UTF-8">
+<title>DRILLIONS – CHROME MODE</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#000; }
+  #gameCanvas { width:100vw; height:100vh; display:block; touch-action:none; }
 
-    .menu {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      background: rgba(0,0,0,0.8);
-      color: #8af3ff;
-      font-family: system-ui, sans-serif;
-      text-shadow: 0 0 8px #00eaff;
-      z-index: 20;
-    }
+  .hud {
+    position:fixed;
+    top:16px;
+    left:16px;
+    color:#8af3ff;
+    font-family:system-ui, sans-serif;
+    text-shadow:0 0 6px #00eaff;
+    font-size:18px;
+    display:none;
+    z-index:20;
+  }
 
-    .menu button {
-      margin-top: 20px;
-      padding: 14px 30px;
-      font-size: 20px;
-      background: #001f2a;
-      border: 2px solid #00eaff;
-      color: #8af3ff;
-      border-radius: 6px;
-    }
-  </style>
+  .menu {
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.85);
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    color:#8af3ff;
+    font-family:system-ui, sans-serif;
+    text-shadow:0 0 8px #00eaff;
+    z-index:30;
+  }
+  .menu button {
+    margin-top:20px;
+    padding:14px 28px;
+    font-size:20px;
+    background:#001f2a;
+    border:2px solid #00eaff;
+    color:#8af3ff;
+    border-radius:6px;
+  }
+</style>
 </head>
 <body>
 
-<div class="menu" id="startMenu">
+<div id="startMenu" class="menu">
   <h1>DRILLIONS – CHROME MODE</h1>
-  <p>Survive as long as you can.</p>
+  <p>Survive as long as possible.</p>
   <button onclick="startGame()">START</button>
 </div>
 
-<div class="hud" id="hud">Time: <span id="time">0.0</span>s</div>
+<div id="hud" class="hud">
+  TIME: <span id="time">0.0</span>s
+</div>
 
 <canvas id="gameCanvas"></canvas>
 
@@ -61,305 +62,131 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-let W, H;
+// size
 function resize() {
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
 }
 resize();
 window.addEventListener("resize", resize);
 
-// ---------------------------
-// SAFE AUDIO (won’t freeze)
-// ---------------------------
-function safeAudio(src) {
-  let a = new Audio();
-  a.src = src;
-  a.preload = "auto";
-  return a;
-}
-
-let thrustSound = safeAudio("thrust.mp3");
-let boomSound   = safeAudio("boom.mp3");
-
-// ---------------------------
-// Game Variables
-// ---------------------------
+// ==============================
+// GAME STATE
+// ==============================
 let gameStarted = false;
 let gameOver = false;
-
 let timer = 0;
-let lastFrame = 0;
+let lastTime = 0;
 
-let asteroids = [];
-const ASTEROID_SIZE = 55;
-
-let explosionParticles = [];
-
-// ---------------------------
-// Player
-// ---------------------------
+// ==============================
+// PLAYER
+// ==============================
 const logo = new Image();
-logo.src = "drillions-pixel-logo.png?v=" + Date.now();
+logo.src = "drillions-pixel-logo.png";
 let logoReady = false;
-logo.onload = () => logoReady = true;
+logo.onload = ()=>logoReady=true;
 
 const player = {
-  x: 200, y: 200,
-  w: 260, h: 120,
-  vx: 5, vy: 4,
-  drag: 0.92,
-  tapAccel: 3,
-  minSpeed: 4,
-  maxSpeed: 13
+  x:200, y:200,
+  w:260, h:120,
+  vx:6, vy:4,
+  drag:0.92
 };
 
-const ghostTrail = [];
-const MAX_GHOSTS = 6;
-
-// ---------------------------
-// Stars
-// ---------------------------
-let stars = [];
-const STAR_COUNT = 180;
-function initStars() {
-  stars = [];
-  for (let i = 0; i < STAR_COUNT; i++) {
-    stars.push({
-      x: Math.random()*W,
-      y: Math.random()*H,
-      size: Math.random()*2+0.5,
-      speed: Math.random()*0.6+0.2,
-      tint: Math.random()<0.5?"cool":"warm"
-    });
-  }
+// ==============================
+// STARS
+// ==============================
+let stars=[];
+for(let i=0;i<150;i++){
+  stars.push({
+    x:Math.random()*canvas.width,
+    y:Math.random()*canvas.height,
+    size:Math.random()*2+0.5,
+    speed:Math.random()*0.7+0.2
+  });
 }
-initStars();
 
-// ---------------------------
-// Start Menu
-// ---------------------------
-function startGame() {
-  document.getElementById("startMenu").style.display = "none";
-  document.getElementById("hud").style.display = "block";
-
+// ==============================
+// START GAME
+// ==============================
+function startGame(){
+  document.getElementById("startMenu").style.display="none";
+  document.getElementById("hud").style.display="block";
   gameStarted = true;
-  gameOver = false;
   timer = 0;
-  asteroids = [];
-  explosionParticles = [];
-
-  lastFrame = performance.now();
+  gameOver = false;
+  lastTime = performance.now();
 }
 
-// ---------------------------
-// Player Update
-// ---------------------------
-function updatePlayer() {
-  player.vx *= player.drag;
-  player.vy *= player.drag;
-
-  let speed = Math.sqrt(player.vx**2 + player.vy**2);
-  if (speed < player.minSpeed) {
-    let f = player.minSpeed / (speed || 1);
-    player.vx *= f;
-    player.vy *= f;
-  }
-  if (speed > player.maxSpeed) {
-    let f = player.maxSpeed / speed;
-    player.vx *= f;
-    player.vy *= f;
-  }
-
-  player.x += player.vx;
-  player.y += player.vy;
-
-  if (player.x <= 0 || player.x + player.w >= W) player.vx *= -1;
-  if (player.y <= 0 || player.y + player.h >= H) player.vy *= -1;
-
-  ghostTrail.unshift({x: player.x+player.w/2, y: player.y+player.h/2});
-  if (ghostTrail.length > MAX_GHOSTS) ghostTrail.pop();
-}
-
-function drawGhostTrail() {
-  for (let i = ghostTrail.length-1; i>=0; i--) {
-    const g = ghostTrail[i];
-    const t = (i+1)/(ghostTrail.length+1);
-    const w = player.w*(0.8+t*0.2);
-    const h = player.h*(0.8+t*0.2);
-    const x = g.x - w/2;
-    const y = g.y - h/2;
-
-    ctx.globalAlpha = 0.08 + t*0.1;
-    if (logoReady) ctx.drawImage(logo, x, y, w, h);
-  }
-  ctx.globalAlpha = 1;
-}
-
-function drawPlayer() {
-  if (logoReady) ctx.drawImage(logo, player.x, player.y, player.w, player.h);
-}
-
-// ---------------------------
-// Asteroids
-// ---------------------------
-setInterval(()=>{
-  if(!gameStarted || gameOver) return;
-  asteroids.push({
-    x: Math.random()*(W - ASTEROID_SIZE),
-    y: -80,
-    size: ASTEROID_SIZE,
-    speed: 2 + Math.random()*2
-  });
-}, 1100);
-
-function updateAsteroids() {
-  asteroids.forEach(a => a.y += a.speed);
-}
-
-function drawAsteroids() {
-  ctx.save();
-  ctx.imageSmoothingEnabled = false;
-  for (let a of asteroids) {
-    ctx.fillStyle="#333";
-    ctx.fillRect(a.x, a.y, a.size, a.size);
-    ctx.fillStyle="#777";
-    ctx.fillRect(a.x+10, a.y+10, a.size-20, a.size-20);
-  }
-  ctx.restore();
-}
-
-// ---------------------------
-// Explosion
-// ---------------------------
-function triggerExplosion(cx, cy) {
-  for (let i=0; i<80; i++) {
-    explosionParticles.push({
-      x: cx, y: cy,
-      vx: (Math.random()-0.5)*10,
-      vy: (Math.random()-0.5)*10,
-      alpha: 1,
-      size: 4+Math.random()*6,
-      color: Math.random()<0.5?"#8af3ff":"#5ddcff"
-    });
-  }
-
-  if (boomSound && boomSound.play) {
-    try { boomSound.currentTime = 0; boomSound.play().catch(()=>{});} catch(e){}
-  }
-}
-
-function updateExplosion() {
-  for (let i=explosionParticles.length-1; i>=0; i--) {
-    let p = explosionParticles[i];
-    p.x += p.vx;
-    p.y += p.vy;
-    p.alpha *= 0.94;
-    if (p.alpha < 0.03) explosionParticles.splice(i,1);
-  }
-}
-
-function drawExplosion() {
-  ctx.save();
-  ctx.globalCompositeOperation="lighter";
-  explosionParticles.forEach(p=>{
-    ctx.fillStyle = p.color.replace(")", `,${p.alpha})`).replace("rgb","rgba");
-    ctx.fillRect(p.x, p.y, p.size, p.size);
-  });
-  ctx.restore();
-}
-
-// ---------------------------
-// Collision
-// ---------------------------
-function checkCollisions() {
-  if (gameOver) return;
-
-  const px=player.x, py=player.y, pw=player.w, ph=player.h;
-
-  for (let a of asteroids) {
-    if (px < a.x + a.size &&
-        px + pw > a.x &&
-        py < a.y + a.size &&
-        py + ph > a.y) {
-
-      triggerExplosion(px+pw/2, py+ph/2);
-      gameOver = true;
-
-      setTimeout(()=>{location.reload()}, 2000);
-    }
-  }
-}
-
-// ---------------------------
-// Touch Controls (safe audio)
-// ---------------------------
-canvas.addEventListener("touchstart", accelerate);
-canvas.addEventListener("touchmove", accelerate);
-
-function accelerate(e) {
-  if (!gameStarted || gameOver) return;
-  e.preventDefault();
-
-  const t = e.touches[0];
-  const tx=t.clientX, ty=t.clientY;
-
-  const cx=player.x+player.w/2;
-  const cy=player.y+player.h/2;
-
-  let dx=tx-cx, dy=ty-cy;
-  let d = Math.sqrt(dx*dx+dy*dy);
-  if (d>0) { dx/=d; dy/=d; }
-
-  player.vx += dx * player.tapAccel;
-  player.vy += dy * player.tapAccel;
-
-  if (thrustSound && thrustSound.play) {
-    try { thrustSound.currentTime = 0; thrustSound.play().catch(()=>{});} catch(e){}
-  }
-}
-
-// ---------------------------
+// ==============================
 // LOOP
-// ---------------------------
-function loop(ts) {
+// ==============================
+function loop(t){
   requestAnimationFrame(loop);
 
   ctx.fillStyle="#000";
-  ctx.fillRect(0,0,W,H);
-
-  if (!gameStarted) return;
-
-  let dt = (ts - lastFrame)/1000;
-  lastFrame = ts;
-
-  if (!gameOver) {
-    timer += dt;
-    document.getElementById("time").textContent = timer.toFixed(1);
-  }
+  ctx.fillRect(0,0,canvas.width,canvas.height);
 
   // stars
-  stars.forEach(s=>{
+  for(let s of stars){
     s.y += s.speed;
-    if (s.y > H) { s.y=-3; s.x=Math.random()*W; }
-    ctx.fillStyle = s.tint==="cool" ? "#a7f3ff" : "#5ddcff";
+    if(s.y > canvas.height){
+      s.y = -3;
+      s.x = Math.random()*canvas.width;
+    }
+    ctx.fillStyle="#8af3ff";
     ctx.fillRect(s.x, s.y, s.size, s.size);
-  });
+  }
 
-  updatePlayer();
-  drawGhostTrail();
-  drawPlayer();
+  if (!gameStarted || gameOver) return;
 
-  updateAsteroids();
-  drawAsteroids();
+  let dt = (t - lastTime)/1000;
+  lastTime = t;
 
-  checkCollisions();
+  timer += dt;
+  document.getElementById("time").textContent = timer.toFixed(1);
 
-  updateExplosion();
-  drawExplosion();
+  // move player
+  player.vx *= player.drag;
+  player.vy *= player.drag;
+  player.x += player.vx;
+  player.y += player.vy;
+
+  // bounds
+  if(player.x < 0 || player.x + player.w > canvas.width) player.vx *= -1;
+  if(player.y < 0 || player.y + player.h > canvas.height) player.vy *= -1;
+
+  if(logoReady) ctx.drawImage(logo, player.x, player.y, player.w, player.h);
 }
 
 requestAnimationFrame(loop);
+
+// ==============================
+// TOUCH CONTROL
+// ==============================
+canvas.addEventListener("touchstart", accelerate);
+canvas.addEventListener("touchmove", accelerate);
+
+function accelerate(e){
+  if(!gameStarted) return;
+  e.preventDefault();
+
+  let t = e.touches[0];
+  let tx=t.clientX, ty=t.clientY;
+
+  let cx=player.x+player.w/2;
+  let cy=player.y+player.h/2;
+
+  let dx=tx-cx, dy=ty-cy;
+  let d=Math.sqrt(dx*dx+dy*dy);
+
+  if(d>0){
+    dx/=d; dy/=d;
+  }
+
+  player.vx += dx*3;
+  player.vy += dy*3;
+}
 </script>
 
 </body>
