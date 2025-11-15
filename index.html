@@ -4,65 +4,33 @@
 <meta charset="UTF-8">
 <title>DRILLIONS – CHROME MODE</title>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  html, body { width:100%; height:100%; overflow:hidden; background:#000; }
-  #gameCanvas { width:100vw; height:100vh; display:block; touch-action:none; }
-
-  .hud {
-    position:fixed;
-    top:16px;
-    left:16px;
-    color:#8af3ff;
-    font-family:system-ui, sans-serif;
-    text-shadow:0 0 6px #00eaff;
-    font-size:18px;
-    display:none;
-    z-index:20;
-  }
-
-  .menu {
-    position:fixed;
-    inset:0;
-    background:rgba(0,0,0,0.85);
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    align-items:center;
-    color:#8af3ff;
-    font-family:system-ui, sans-serif;
-    text-shadow:0 0 8px #00eaff;
-    z-index:30;
-  }
-  .menu button {
-    margin-top:20px;
-    padding:14px 28px;
-    font-size:20px;
-    background:#001f2a;
-    border:2px solid #00eaff;
-    color:#8af3ff;
-    border-radius:6px;
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+  canvas { width: 100vw; height: 100vh; display: block; touch-action: none; }
+  #hud {
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    font-family: system-ui, sans-serif;
+    font-size: 14px;
+    color: #8af3ff;
+    text-shadow: 0 0 6px #00eaff;
+    z-index: 20;
   }
 </style>
 </head>
 <body>
 
-<div id="startMenu" class="menu">
-  <h1>DRILLIONS – CHROME MODE</h1>
-  <p>Survive as long as possible.</p>
-  <button onclick="startGame()">START</button>
-</div>
-
-<div id="hud" class="hud">
-  TIME: <span id="time">0.0</span>s
-</div>
-
-<canvas id="gameCanvas"></canvas>
+<div id="hud">DRILLIONS – CHROME MODE</div>
+<canvas id="game"></canvas>
 
 <script>
-const canvas = document.getElementById("gameCanvas");
+// =========================================
+// CANVAS SETUP
+// =========================================
+const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-// size
 function resize() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
@@ -70,123 +38,149 @@ function resize() {
 resize();
 window.addEventListener("resize", resize);
 
-// ==============================
-// GAME STATE
-// ==============================
-let gameStarted = false;
-let gameOver = false;
-let timer = 0;
-let lastTime = 0;
-
-// ==============================
-// PLAYER
-// ==============================
+// =========================================
+// PLAYER LOGO
+// =========================================
 const logo = new Image();
-logo.src = "drillions-pixel-logo.png";
+logo.src = "drillions-pixel-logo.png";  
 let logoReady = false;
-logo.onload = ()=>logoReady=true;
+logo.onload = () => logoReady = true;
 
+// =========================================
+// PLAYER OBJECT (SUPER SMOOTH VERSION)
+// =========================================
 const player = {
-  x:200, y:200,
-  w:260, h:120,
-  vx:6, vy:4,
-  drag:0.92
+  x: 200,
+  y: 200,
+  w: 240,
+  h: 110,
+  vx: 0,
+  vy: 0,
+  accel: 2200,
+  maxSpeed: 900,
+  drag: 0.96
 };
 
-// ==============================
-// STARS
-// ==============================
-let stars=[];
-for(let i=0;i<150;i++){
-  stars.push({
-    x:Math.random()*canvas.width,
-    y:Math.random()*canvas.height,
-    size:Math.random()*2+0.5,
-    speed:Math.random()*0.7+0.2
-  });
-}
+// =========================================
+// STARFIELD
+// =========================================
+const STAR_COUNT = 180;
+let stars = [];
 
-// ==============================
-// START GAME
-// ==============================
-function startGame(){
-  document.getElementById("startMenu").style.display="none";
-  document.getElementById("hud").style.display="block";
-  gameStarted = true;
-  timer = 0;
-  gameOver = false;
-  lastTime = performance.now();
-}
-
-// ==============================
-// LOOP
-// ==============================
-function loop(t){
-  requestAnimationFrame(loop);
-
-  ctx.fillStyle="#000";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-
-  // stars
-  for(let s of stars){
-    s.y += s.speed;
-    if(s.y > canvas.height){
-      s.y = -3;
-      s.x = Math.random()*canvas.width;
-    }
-    ctx.fillStyle="#8af3ff";
-    ctx.fillRect(s.x, s.y, s.size, s.size);
+function initStars() {
+  stars = [];
+  for (let i = 0; i < STAR_COUNT; i++) {
+    stars.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: Math.random() * 2 + 0.5,
+      speed: Math.random() * 0.6 + 0.2
+    });
   }
+}
+initStars();
 
-  if (!gameStarted || gameOver) return;
-
-  let dt = (t - lastTime)/1000;
-  lastTime = t;
-
-  timer += dt;
-  document.getElementById("time").textContent = timer.toFixed(1);
-
-  // move player
+// =========================================
+// UPDATE PLAYER (delta-time smooth)
+// =========================================
+function updatePlayer(dt) {
+  // drag
   player.vx *= player.drag;
   player.vy *= player.drag;
-  player.x += player.vx;
-  player.y += player.vy;
 
-  // bounds
-  if(player.x < 0 || player.x + player.w > canvas.width) player.vx *= -1;
-  if(player.y < 0 || player.y + player.h > canvas.height) player.vy *= -1;
+  // speed clamp
+  const speed = Math.hypot(player.vx, player.vy);
+  if (speed > player.maxSpeed) {
+    const s = player.maxSpeed / speed;
+    player.vx *= s;
+    player.vy *= s;
+  }
 
-  if(logoReady) ctx.drawImage(logo, player.x, player.y, player.w, player.h);
+  // movement
+  player.x += player.vx * dt;
+  player.y += player.vy * dt;
+
+  // border bounce
+  if (player.x < 0) { player.x = 0; player.vx *= -0.7; }
+  if (player.y < 0) { player.y = 0; player.vy *= -0.7; }
+
+  if (player.x + player.w > canvas.width) {
+    player.x = canvas.width - player.w;
+    player.vx *= -0.7;
+  }
+  if (player.y + player.h > canvas.height) {
+    player.y = canvas.height - player.h;
+    player.vy *= -0.7;
+  }
+
+  // draw
+  if (logoReady) {
+    ctx.drawImage(logo, player.x, player.y, player.w, player.h);
+  }
 }
 
-requestAnimationFrame(loop);
+// =========================================
+// TOUCH MOVEMENT
+// =========================================
+function accelerate(e) {
+  e.preventDefault();
 
-// ==============================
-// TOUCH CONTROL
-// ==============================
+  const t = e.touches[0];
+  const tx = t.clientX;
+  const ty = t.clientY;
+
+  const cx = player.x + player.w / 2;
+  const cy = player.y + player.h / 2;
+
+  let dx = tx - cx;
+  let dy = ty - cy;
+
+  const d = Math.hypot(dx, dy);
+  if (d > 0) {
+    dx /= d;
+    dy /= d;
+  }
+
+  // Add speed
+  player.vx += dx * player.accel * 0.016;
+  player.vy += dy * player.accel * 0.016;
+}
+
 canvas.addEventListener("touchstart", accelerate);
 canvas.addEventListener("touchmove", accelerate);
 
-function accelerate(e){
-  if(!gameStarted) return;
-  e.preventDefault();
+// =========================================
+// MAIN LOOP WITH DELTA-TIME
+// =========================================
+let last = 0;
 
-  let t = e.touches[0];
-  let tx=t.clientX, ty=t.clientY;
+function loop(t) {
+  requestAnimationFrame(loop);
 
-  let cx=player.x+player.w/2;
-  let cy=player.y+player.h/2;
+  let dt = (t - last) / 1000;
+  if (dt > 0.05) dt = 0.05;
+  last = t;
 
-  let dx=tx-cx, dy=ty-cy;
-  let d=Math.sqrt(dx*dx+dy*dy);
+  // Clear
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  if(d>0){
-    dx/=d; dy/=d;
+  // Stars
+  for (let s of stars) {
+    s.y += s.speed;
+    if (s.y > canvas.height) {
+      s.y = -3;
+      s.x = Math.random() * canvas.width;
+    }
+    ctx.fillStyle = "#8af3ff";
+    ctx.fillRect(s.x, s.y, s.size, s.size);
   }
 
-  player.vx += dx*3;
-  player.vy += dy*3;
+  // Player
+  updatePlayer(dt);
 }
+
+loop();
 </script>
 
 </body>
