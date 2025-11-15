@@ -2,16 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DRILLIONS – Clean Stars + Chrome Trails</title>
+  <title>DRILLIONS – Followers Edition</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
-    #gameCanvas { width: 100vw; height: 100vh; display: block; touch-action: none; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { width:100%; height:100%; overflow:hidden; background:#000; }
+    #gameCanvas { width:100vw; height:100vh; display:block; touch-action:none; }
   </style>
 </head>
 
 <body>
-
 <canvas id="gameCanvas"></canvas>
 
 <script>
@@ -38,43 +37,39 @@ let logoReady = false;
 logo.onload = () => logoReady = true;
 
 // ------------------------------
-// Player (smooth, fast, clean)
+// Player
 // ------------------------------
 const p = {
-  x: 150,
-  y: 150,
-  w: 260,
-  h: 130,
-  vx: 4,
-  vy: 4,
+  x: 150, y: 150,
+  w: 260, h: 130,
+  vx: 4, vy: 4,
   drag: 0.94,
   accel: 2,
-  minSpeed: 3.0,
+  minSpeed: 3,
   maxSpeed: 10
 };
 
 // ------------------------------
-// Starfield (your old one)
+// Starfield
 // ------------------------------
-const STAR_COUNT = 140;
+const STAR_COUNT = 150;
 let stars = [];
-
 function initStars(){
   stars = [];
   for(let i=0;i<STAR_COUNT;i++){
     stars.push({
-      x: Math.random()*W,
-      y: Math.random()*H,
-      size: Math.random()*1.8 + 0.4,
-      speed: Math.random()*0.4 + 0.2,
-      tint: Math.random() < 0.5 ? "cool" : "warm"
+      x:Math.random()*W,
+      y:Math.random()*H,
+      size:Math.random()*1.8+0.4,
+      speed:Math.random()*0.4+0.2,
+      tint:Math.random()<0.5?"cool":"warm"
     });
   }
 }
 initStars();
 
 function updateStars(){
-  for(let s of stars){
+  for(const s of stars){
     s.y += s.speed;
     if(s.y > H){
       s.y = -2;
@@ -84,51 +79,19 @@ function updateStars(){
 }
 
 function drawStars(){
-  ctx.globalAlpha = 0.8;
-  for(let s of stars){
-    ctx.fillStyle = s.tint === "cool" ? "#aaf5ff" : "#66d9ff";
+  ctx.globalAlpha = 0.7;
+  for(const s of stars){
+    ctx.fillStyle = s.tint==="cool" ? "#aaf5ff" : "#66d9ff";
     ctx.fillRect(s.x, s.y, s.size, s.size);
   }
   ctx.globalAlpha = 1;
 }
 
 // ------------------------------
-// Chrome Trail (your original)
+// Chrome Beam Trail
 // ------------------------------
 const trail = [];
 const MAX_TRAIL = 40;
-
-function updatePlayer(){
-  p.vx *= p.drag;
-  p.vy *= p.drag;
-
-  const speed = Math.sqrt(p.vx*p.vx + p.vy*p.vy);
-  if(speed < p.minSpeed){
-    const f = p.minSpeed / (speed || 1);
-    p.vx *= f;
-    p.vy *= f;
-  }
-  if(speed > p.maxSpeed){
-    const f = p.maxSpeed / speed;
-    p.vx *= f;
-    p.vy *= f;
-  }
-
-  p.x += p.vx;
-  p.y += p.vy;
-
-  if(p.x <= 0 || p.x + p.w >= W) p.vx *= -1;
-  if(p.y <= 0 || p.y + p.h >= H) p.vy *= -1;
-
-  p.x = Math.min(Math.max(p.x,0), W - p.w);
-  p.y = Math.min(Math.max(p.y,0), H - p.h);
-
-  const cx = p.x + p.w/2;
-  const cy = p.y + p.h/2;
-
-  trail.unshift({ x: cx, y: cy });
-  if(trail.length > MAX_TRAIL) trail.pop();
-}
 
 function drawTrail(){
   if(trail.length < 2) return;
@@ -136,20 +99,121 @@ function drawTrail(){
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
 
-  for(let i=0; i<trail.length-1; i++){
+  for(let i=0;i<trail.length-1;i++){
     const a = trail[i];
     const b = trail[i+1];
     const t = 1 - i / trail.length;
 
-    ctx.lineWidth = 7 * t;
-    ctx.strokeStyle = `rgba(150,220,255,${0.12 + t*0.2})`;
+    ctx.lineWidth = 6 * t;
+    ctx.strokeStyle = `rgba(160,220,255,${0.12 + t*0.18})`;
+
     ctx.beginPath();
     ctx.moveTo(a.x, a.y);
     ctx.lineTo(b.x, b.y);
     ctx.stroke();
   }
-
   ctx.restore();
+}
+
+// ------------------------------
+// Followers (Ghost Clones)
+// ------------------------------
+const FOLLOWERS = 4;
+const follower = [];
+
+function initFollowers(){
+  follower.length = 0;
+  const cx = p.x + p.w/2;
+  const cy = p.y + p.h/2;
+
+  for(let i=0;i<FOLLOWERS;i++){
+    follower.push({ x:cx, y:cy });
+  }
+}
+initFollowers();
+
+function updateFollowers(){
+  const tx = p.x + p.w/2;
+  const ty = p.y + p.h/2;
+
+  for(let i=0;i<follower.length;i++){
+    const f = follower[i];
+    const target = i===0 ? {x:tx, y:ty} : follower[i-1];
+
+    // smooth "snake" motion
+    f.x += (target.x - f.x) * 0.12;
+    f.y += (target.y - f.y) * 0.12;
+  }
+}
+
+function drawFollowers(){
+  if(!logoReady) return;
+  for(let i=follower.length-1;i>=0;i--){
+    const f = follower[i];
+    const t = (i+1)/(follower.length+1);
+    const scale = 0.5 + t*0.25;
+    const alpha = 0.1 * t;
+
+    const w = p.w * scale;
+    const h = p.h * scale;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(logo, f.x - w/2, f.y - h/2, w, h);
+    ctx.restore();
+  }
+}
+
+// ------------------------------
+// Light Screen Rumble on Wall Hit
+// ------------------------------
+let shakeTime = 0;
+
+function lightShake(){
+  shakeTime = 6; // super light
+}
+
+// ------------------------------
+// Player Update
+// ------------------------------
+function updatePlayer(){
+  p.vx *= p.drag;
+  p.vy *= p.drag;
+
+  let speed = Math.sqrt(p.vx*p.vx + p.vy*p.vy);
+  if(speed < p.minSpeed){
+    const f = p.minSpeed/(speed||1);
+    p.vx *= f; p.vy *= f;
+  }
+  if(speed > p.maxSpeed){
+    const f = p.maxSpeed/speed;
+    p.vx *= f; p.vy *= f;
+  }
+
+  p.x += p.vx;
+  p.y += p.vy;
+
+  let bounced = false;
+
+  if(p.x <= 0 || p.x + p.w >= W){
+    p.vx *= -1;
+    bounced = true;
+  }
+  if(p.y <= 0 || p.y + p.h >= H){
+    p.vy *= -1;
+    bounced = true;
+  }
+
+  if(bounced) lightShake();
+
+  p.x = Math.min(Math.max(p.x,0), W-p.w);
+  p.y = Math.min(Math.max(p.y,0), H-p.h);
+
+  const cx = p.x + p.w/2;
+  const cy = p.y + p.h/2;
+
+  trail.unshift({x:cx, y:cy});
+  if(trail.length > MAX_TRAIL) trail.pop();
 }
 
 // ------------------------------
@@ -167,43 +231,50 @@ function loop(){
   ctx.fillStyle = "#000";
   ctx.fillRect(0,0,W,H);
 
+  // Light 1–2px shake only
+  ctx.save();
+  if(shakeTime > 0){
+    shakeTime--;
+    const sx = (Math.random()-0.5)*2;
+    const sy = (Math.random()-0.5)*2;
+    ctx.translate(sx, sy);
+  }
+
   updateStars();
   updatePlayer();
+  updateFollowers();
 
   drawStars();
   drawTrail();
+  drawFollowers();
   drawPlayer();
+
+  ctx.restore();
 
   requestAnimationFrame(loop);
 }
 loop();
 
 // ------------------------------
-// Touch Acceleration
+// Touch Control
 // ------------------------------
-canvas.addEventListener("touchstart", accel);
-canvas.addEventListener("touchmove", accel);
+canvas.addEventListener("touchstart", accelerate);
+canvas.addEventListener("touchmove", accelerate);
 
-function accel(e){
+function accelerate(e){
   e.preventDefault();
   const t = e.touches[0];
-  const tx = t.clientX;
-  const ty = t.clientY;
+  const tx = t.clientX, ty = t.clientY;
 
   const cx = p.x + p.w/2;
   const cy = p.y + p.h/2;
 
-  let dx = tx - cx;
-  let dy = ty - cy;
-
+  let dx = tx - cx, dy = ty - cy;
   const d = Math.sqrt(dx*dx + dy*dy);
-  if(d > 0){
-    dx/=d;
-    dy/=d;
-  }
+  if(d>0){ dx/=d; dy/=d; }
 
-  p.vx += dx * p.accel;
-  p.vy += dy * p.accel;
+  p.vx += dx*p.accel;
+  p.vy += dy*p.accel;
 }
 </script>
 
