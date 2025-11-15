@@ -1,34 +1,32 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>DRILLIONS – SUPER SMOOTH MODE</title>
+<title>DRILLIONS TEST ENGINE</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
-  canvas { width: 100vw; height: 100vh; display: block; touch-action: none; }
-
-  #hud {
-    position: fixed;
-    top: 14px;
-    left: 14px;
-    color: #8af3ff;
-    font-family: system-ui, sans-serif;
-    font-size: 15px;
-    text-shadow: 0 0 6px #00eaff;
-    z-index: 20;
+  html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+  }
+  canvas {
+      width: 100vw;
+      height: 100vh;
+      display: block;
   }
 </style>
 </head>
 <body>
 
-<div id="hud">DRILLIONS – SUPER SMOOTH MODE</div>
 <canvas id="game"></canvas>
 
 <script>
-// ===================================================================
-// CANVAS SETUP
-// ===================================================================
+// --------------------------------------------------
+// BASIC CANVAS SETUP (Guaranteed to work)
+// --------------------------------------------------
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
@@ -39,142 +37,29 @@ function resize() {
 resize();
 window.addEventListener("resize", resize);
 
-// ===================================================================
-// PLAYER IMAGE
-// ===================================================================
-const logo = new Image();
-logo.src = "drillions-pixel-logo.png";
-let logoReady = false;
-logo.onload = () => logoReady = true;
+// --------------------------------------------------
+// TEST LOGO
+// --------------------------------------------------
+const img = new Image();
+img.src = "drillions-pixel-logo.png?v=" + Date.now();
+let ready = false;
 
-// ===================================================================
-// PHYSICS — TRUE SMOOTH ENGINE
-// ===================================================================
-const player = {
-    x: 250,
-    y: 250,
-    w: 260,
-    h: 120,
-    vx: 180,         // constant drift
-    vy: 140,
-    boost: 900,      // tap boost
-    maxSpeed: 900,
-    drag: 0.99       // ultra-smooth
-};
+img.onload = () => ready = true;
 
-// ===================================================================
-// STARFIELD (decoupled, FAST)
-// ===================================================================
-const STAR_COUNT = 200;
-let stars = [];
-
-function createStars() {
-    stars = [];
-    for (let i = 0; i < STAR_COUNT; i++) {
-        stars.push({
-            x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height,
-            speed: 50 + Math.random() * 50,
-            size: Math.random() * 2 + 0.8
-        });
-    }
-}
-createStars();
-
-// ===================================================================
-// UPDATE PLAYER (always smooth)
-// ===================================================================
-function updatePlayer(dt) {
-    // drag
-    player.vx *= player.drag;
-    player.vy *= player.drag;
-
-    // clamp
-    const sp = Math.hypot(player.vx, player.vy);
-    if (sp > player.maxSpeed) {
-        player.vx *= player.maxSpeed / sp;
-        player.vy *= player.maxSpeed / sp;
-    }
-
-    // move
-    player.x += player.vx * dt;
-    player.y += player.vy * dt;
-
-    // bounce
-    if (player.x < 0) { player.x = 0; player.vx = Math.abs(player.vx); }
-    if (player.y < 0) { player.y = 0; player.vy = Math.abs(player.vy); }
-
-    if (player.x + player.w > canvas.width) {
-        player.x = canvas.width - player.w;
-        player.vx = -Math.abs(player.vx);
-    }
-    if (player.y + player.h > canvas.height) {
-        player.y = canvas.height - player.h;
-        player.vy = -Math.abs(player.vy);
-    }
-
-    // draw
-    if (logoReady) ctx.drawImage(logo, player.x, player.y, player.w, player.h);
-}
-
-// ===================================================================
-// TOUCH BOOST (smooth, instant)
-// ===================================================================
-function boost(e) {
-    e.preventDefault();
-    const t = e.touches[0];
-
-    const tx = t.clientX;
-    const ty = t.clientY;
-
-    const cx = player.x + player.w / 2;
-    const cy = player.y + player.h / 2;
-
-    let dx = tx - cx;
-    let dy = ty - cy;
-
-    const d = Math.hypot(dx, dy);
-    if (d > 0) { dx /= d; dy /= d; }
-
-    // BOOST
-    player.vx += dx * player.boost * 0.017;
-    player.vy += dy * player.boost * 0.017;
-}
-
-canvas.addEventListener("touchstart", boost);
-canvas.addEventListener("touchmove", boost);
-
-// ===================================================================
-// MAIN GAME LOOP — butter smooth
-// ===================================================================
-let lastTime = 0;
-
-function gameLoop(timestamp) {
-    requestAnimationFrame(gameLoop);
-    let dt = (timestamp - lastTime) / 1000;
-    if (dt > 0.033) dt = 0.033; // safety cap
-    lastTime = timestamp;
-
-    // clear
+// --------------------------------------------------
+// PERFECTLY SAFE LOOP
+// --------------------------------------------------
+function loop() {
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // stars (now tied to dt, smooth)
-    stars.forEach(s => {
-        s.y += s.speed * dt;
-        if (s.y > canvas.height) {
-            s.y = -5;
-            s.x = Math.random() * canvas.width;
-        }
-        ctx.fillStyle = "#9ffaff";
-        ctx.fillRect(s.x, s.y, s.size, s.size);
-    });
+    if (ready) {
+        ctx.drawImage(img, canvas.width/2 - 150, canvas.height/2 - 75, 300, 150);
+    }
 
-    // player
-    updatePlayer(dt);
+    requestAnimationFrame(loop);
 }
-
-gameLoop();
+loop();
 </script>
 
 </body>
