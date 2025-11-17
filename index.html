@@ -28,14 +28,129 @@
       z-index: 10;
       letter-spacing: 0.08em;
     }
+
+    /* ---------- DRILLIONS MINI-ARCADE SELECTOR ---------- */
+    #selector-screen {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at top, #050818 0%, #000 55%, #000 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      text-align: center;
+    }
+    .select-title {
+      font-size: 26px;
+      color: #78baff;
+      letter-spacing: 0.25em;
+      text-shadow: 0 0 12px #3fa9ff;
+      margin-bottom: 8px;
+      font-family: system-ui, sans-serif;
+    }
+    .select-subtitle {
+      font-size: 13px;
+      opacity: 0.7;
+      color: #8af3ff;
+      margin-bottom: 28px;
+      font-family: system-ui, sans-serif;
+    }
+    .select-row {
+      display: flex;
+      gap: 22px;
+    }
+    .select-card {
+      width: 140px;
+      height: 160px;
+      border-radius: 14px;
+      position: relative;
+      cursor: pointer;
+      background: rgba(255,255,255,0.03);
+      border: 2px solid rgba(255,255,255,0.16);
+      overflow: hidden;
+      transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+    }
+    .select-card::before {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      background: linear-gradient(135deg, rgba(255,255,255,0.6), rgba(120,186,255,0.1), rgba(255,255,255,0.7));
+      opacity: 0.22;
+      transform: translateX(-40%) rotate(18deg);
+      pointer-events: none;
+    }
+    .select-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 0 22px rgba(63,169,255,0.9);
+      border-color: rgba(138,243,255,0.8);
+    }
+    .select-label {
+      position: absolute;
+      bottom: 22px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      color: #a9d4ff;
+      text-shadow: 0 0 10px #3fa9ff;
+      font-size: 15px;
+      font-family: system-ui, sans-serif;
+      letter-spacing: 0.18em;
+    }
+    .select-tag {
+      position: absolute;
+      top: 12px;
+      left: 14px;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(200,230,255,0.7);
+      font-family: system-ui, sans-serif;
+    }
   </style>
 </head>
 <body>
 
-<div class="hud">DRILLIONS – CHROME MODE</div>
-<canvas id="gameCanvas"></canvas>
+<!-- 🔵 GAME SELECT OVERLAY -->
+<div id="selector-screen">
+  <div class="select-title">DRILLIONS MINI-ARCADE</div>
+  <div class="select-subtitle">CHOOSE YOUR GAME</div>
+
+  <div class="select-row">
+    <!-- ASTEROIDS CARD -->
+    <div class="select-card" onclick="startAsteroids()">
+      <div class="select-tag">OG MODE</div>
+      <div class="select-label">ASTEROIDS</div>
+    </div>
+
+    <!-- FLAPPY CARD -->
+    <div class="select-card" onclick="goFlappy()">
+      <div class="select-tag">NEW</div>
+      <div class="select-label">FLAPPY</div>
+    </div>
+  </div>
+</div>
+
+<!-- 🔵 ASTEROIDS GAME WRAPPED (HIDDEN UNTIL CHOSEN) -->
+<div id="asteroids-container" style="display:none;">
+  <div class="hud">DRILLIONS – CHROME MODE</div>
+  <canvas id="gameCanvas"></canvas>
+</div>
 
 <script>
+// ----------------------------------------------------
+// Simple game selection
+// ----------------------------------------------------
+function startAsteroids() {
+  document.getElementById("selector-screen").style.display = "none";
+  document.getElementById("asteroids-container").style.display = "block";
+}
+
+function goFlappy() {
+  // flappy folder is a sibling of this index.html
+  window.location.href = "flappy/";
+}
+
 // ----------------------------------------------------
 // Canvas Setup
 // ----------------------------------------------------
