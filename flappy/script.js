@@ -8,58 +8,55 @@ const messageEl = document.getElementById("message");
 function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
+  resetPlayerPosition();
+  resetPipeParams();
+  initStars();
 }
 resizeCanvas();
-window.addEventListener("resize", () => {
-  resizeCanvas();
-  initStars();
-});
+window.addEventListener("resize", resizeCanvas);
 
 // ---------- PLAYER (PIXEL DRILLIONS) ----------
 const playerImg = new Image();
-// path assumes drillions-pixel-logo.png is in repo root
+// assumes drillions-pixel-logo.png is in repo root, like before
 playerImg.src = "../drillions-pixel-logo.png";
 
 const player = {
   x: 0,
   y: 0,
   width: 0,
-  height: 0,
-  vy: 0
+  height: 0
 };
+
+let targetY = 0;
+let lastPlayerY = 0;
 
 function resetPlayerPosition() {
   const baseWidth = Math.min(canvas.width * 0.25, 170); // smaller & crisp
-  const aspect = 0.28; // wordmark aspect ratio
-
+  const aspect = 0.28; // wordmark aspect
   player.width = baseWidth;
   player.height = baseWidth * aspect;
-  player.x = canvas.width * 0.2;
-  player.y = canvas.height * 0.45;
-  player.vy = 0;
+  player.x = canvas.width * 0.18;
+  player.y = canvas.height * 0.5;
+  targetY = player.y;
+  lastPlayerY = player.y;
 }
 
-let gravity = 0.45;
-let flapStrength = -9;
-let maxFallSpeed = 14;
-
-// ---------- PIPES ----------
+// ---------- PIPES (FEWER, MORE SPACED) ----------
 let pipes = [];
 let pipeGap, pipeWidth, pipeSpeed;
-let spawnInterval = 1400;
+let spawnInterval = 1900;
 let lastSpawn = 0;
 
 function resetPipeParams() {
-  pipeGap = canvas.height * 0.4;               // bigger gap
-  pipeWidth = Math.max(35, canvas.width * 0.08);
-  pipeSpeed = Math.max(2.2, canvas.width * 0.0027); // a bit slower -> more pipes on screen
+  pipeGap = canvas.height * 0.45;
+  pipeWidth = Math.max(40, canvas.width * 0.09);
+  pipeSpeed = Math.max(2.1, canvas.width * 0.0025); // smoother, not crazy fast
 }
 
 function spawnPipeAt(x) {
-  const margin = 60;
+  const margin = 70;
   const maxTop = canvas.height - pipeGap - margin;
   const topHeight = margin + Math.random() * (maxTop - margin);
-
   pipes.push({
     x,
     topHeight,
@@ -68,16 +65,16 @@ function spawnPipeAt(x) {
 }
 
 function spawnPipe() {
-  spawnPipeAt(canvas.width);
+  spawnPipeAt(canvas.width + pipeWidth * 2);
 }
 
-// seed ~5–6 pipes ahead so you can see them
+// seed 4–5 pipes far apart so you can see what's coming
 function seedPipes() {
   pipes = [];
-  const spacing = canvas.width * 0.22; // distance between pipes
-  const startX = canvas.width * 0.6;
+  const spacing = canvas.width * 0.3; // more distance between pipes
+  const startX = canvas.width * 0.7;
 
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 5; i++) {
     spawnPipeAt(startX + i * (pipeWidth + spacing));
   }
 }
@@ -88,15 +85,14 @@ let stars = [];
 function initStars() {
   stars = [];
   const starCount = Math.min(
-    120,
-    Math.max(40, Math.floor((canvas.width * canvas.height) / 14000))
+    140,
+    Math.max(50, Math.floor((canvas.width * canvas.height) / 13000))
   );
-
   for (let i = 0; i < starCount; i++) {
     stars.push({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
-      speed: 0.3 + Math.random() * 0.9,
+      speed: 0.25 + Math.random() * 0.9,
       size: 0.7 + Math.random() * 1.6,
       alpha: 0.3 + Math.random() * 0.7
     });
@@ -106,7 +102,7 @@ function initStars() {
 function updateStars(dt) {
   const factor = dt / 16.67;
   for (const s of stars) {
-    s.x -= s.speed * factor * 1.3;
+    s.x -= s.speed * factor * 1.2;
     if (s.x < -10) {
       s.x = canvas.width + Math.random() * 40;
       s.y = Math.random() * canvas.height;
@@ -126,44 +122,116 @@ function drawStars() {
   ctx.restore();
 }
 
-// ---------- TRAIL (NO BIG BALL – SLIM CHROME TAIL) ----------
+// ---------- CHROME TRAIL UNDER THE LOGO ----------
 let trail = [];
 
 function addTrail() {
   trail.push({
-    x: player.x + player.width * 0.1,
-    y: player.y + player.height * 0.65,
-    length: player.width * 0.6,
-    opacity: 0.9
+    x: player.x,
+    y: player.y + player.height * 0.7, // under the wordmark
+    length: player.width * 0.7,
+    opacity: 0.9,
+    wobbleSeed: Math.random() * Math.PI * 2
   });
 }
 
-function updateTrail() {
+function updateTrail(dt) {
+  const factor = dt / 16.67;
   for (let i = trail.length - 1; i >= 0; i--) {
-    trail[i].x -= pipeSpeed * 0.9;
-    trail[i].opacity -= 0.04;
-    if (trail[i].opacity <= 0) trail.splice(i, 1);
+    const t = trail[i];
+    t.x -= pipeSpeed * factor * 1.1;
+    t.opacity -= 0.04 * factor;
+    if (t.opacity <= 0) {
+      trail.splice(i, 1);
+    }
   }
 }
 
-function drawTrail() {
+function drawTrail(time) {
   for (const t of trail) {
+    const wobble = Math.sin(time / 180 + t.wobbleSeed) * 4; // chrome sprites bouncing
+
     const grad = ctx.createLinearGradient(
       t.x - t.length,
-      t.y,
+      t.y + wobble,
       t.x,
-      t.y
+      t.y + wobble
     );
-    grad.addColorStop(0, `rgba(25,80,140,0)`);
-    grad.addColorStop(0.5, `rgba(120,200,255,${t.opacity * 0.7})`);
+    grad.addColorStop(0, "rgba(20,70,130,0)");
+    grad.addColorStop(0.4, `rgba(90,170,240,${t.opacity * 0.7})`);
     grad.addColorStop(1, `rgba(200,240,255,${t.opacity})`);
 
     ctx.strokeStyle = grad;
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(t.x - t.length, t.y);
-    ctx.lineTo(t.x, t.y);
+    ctx.moveTo(t.x - t.length, t.y + wobble);
+    ctx.lineTo(t.x, t.y + wobble);
     ctx.stroke();
+
+    // little chrome sparks along the trail
+    ctx.fillStyle = `rgba(200,240,255,${t.opacity})`;
+    for (let i = 0; i < 3; i++) {
+      const fx = t.x - Math.random() * t.length;
+      const fy = t.y + wobble + (Math.random() - 0.5) * 6;
+      ctx.beginPath();
+      ctx.arc(fx, fy, 1.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+// ---------- BURST ON DEATH ----------
+let burstParticles = [];
+
+function createBurst() {
+  burstParticles = [];
+  const cx = player.x + player.width / 2;
+  const cy = player.y + player.height / 2;
+
+  for (let i = 0; i < 45; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 2 + Math.random() * 4;
+    burstParticles.push({
+      x: cx,
+      y: cy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1,
+      size: 2 + Math.random() * 3
+    });
+  }
+}
+
+function updateBurst(dt) {
+  const factor = dt / 16.67;
+  for (let i = burstParticles.length - 1; i >= 0; i--) {
+    const p = burstParticles[i];
+    p.x += p.vx * factor;
+    p.y += p.vy * factor;
+    p.vy += 0.12 * factor; // tiny gravity
+    p.life -= 0.03 * factor;
+    if (p.life <= 0) burstParticles.splice(i, 1);
+  }
+}
+
+function drawBurst() {
+  for (const p of burstParticles) {
+    const alpha = Math.max(0, p.life);
+    const grad = ctx.createRadialGradient(
+      p.x,
+      p.y,
+      0,
+      p.x,
+      p.y,
+      p.size * 2
+    );
+    grad.addColorStop(0, `rgba(200,240,255,${alpha})`);
+    grad.addColorStop(1, "rgba(30,80,140,0)");
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * 2, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 
@@ -177,42 +245,55 @@ function startNewGame() {
   scoreEl.textContent = "0";
   resetPipeParams();
   resetPlayerPosition();
-  trail = [];
   seedPipes();
+  trail = [];
+  burstParticles = [];
   lastSpawn = 0;
   lastTime = 0;
   gameState = "ready";
-  messageEl.textContent = "TAP TO START";
+  messageEl.textContent = "TAP & DRAG TO PLAY";
 }
 
-// ---------- INPUT ----------
-function flap() {
-  if (gameState === "loading") return;
+// ---------- INPUT: TRUE TOUCH MOVEMENT ----------
+let touchActive = false;
+
+function getPointerY(e) {
+  if (e.touches && e.touches.length > 0) {
+    return e.touches[0].clientY;
+  }
+  return e.clientY;
+}
+
+function pointerDown(e) {
+  e.preventDefault();
+  const y = getPointerY(e);
+  targetY = y;
+  touchActive = true;
 
   if (gameState === "ready") {
     gameState = "playing";
     messageEl.textContent = "";
   } else if (gameState === "over") {
     startNewGame();
-    return;
   }
-
-  player.vy = flapStrength;
 }
 
-window.addEventListener("touchstart", (e) => {
-  e.preventDefault();
-  flap();
-}, { passive: false });
+function pointerMove(e) {
+  if (!touchActive) return;
+  const y = getPointerY(e);
+  targetY = y;
+}
 
-window.addEventListener("mousedown", flap);
+function pointerUp() {
+  touchActive = false;
+}
 
-window.addEventListener("keydown", (e) => {
-  if (["Space", "ArrowUp"].includes(e.code)) {
-    e.preventDefault();
-    flap();
-  }
-});
+window.addEventListener("touchstart", pointerDown, { passive: false });
+window.addEventListener("touchmove", pointerMove, { passive: false });
+window.addEventListener("touchend", pointerUp);
+window.addEventListener("mousedown", pointerDown);
+window.addEventListener("mousemove", pointerMove);
+window.addEventListener("mouseup", pointerUp);
 
 // ---------- LOOP ----------
 function loop(timestamp) {
@@ -221,23 +302,29 @@ function loop(timestamp) {
   lastTime = timestamp;
 
   update(dt);
-  render();
+  render(timestamp);
 
   requestAnimationFrame(loop);
 }
 
 function update(dt) {
-  updateStars(dt); // background moves even when not playing
+  updateStars(dt);
+  updateBurst(dt);
 
   if (gameState === "loading" || gameState === "ready") return;
 
   if (gameState === "playing") {
-    // physics
-    player.vy += gravity;
-    if (player.vy > maxFallSpeed) player.vy = maxFallSpeed;
-    player.y += player.vy;
+    // smooth movement towards touch target (no gravity)
+    const lerpSpeed = 0.18 * (dt / 16.67);
+    player.y += (targetY - player.y) * lerpSpeed;
 
-    // spawn new pipes over time
+    // clamp inside screen
+    const minY = 0;
+    const maxY = canvas.height - player.height;
+    if (player.y < minY) player.y = minY;
+    if (player.y > maxY) player.y = maxY;
+
+    // pipes spawn
     lastSpawn += dt;
     if (lastSpawn > spawnInterval) {
       spawnPipe();
@@ -245,9 +332,10 @@ function update(dt) {
     }
 
     // move pipes
+    const factor = dt / 16.67;
     for (let i = pipes.length - 1; i >= 0; i--) {
       const p = pipes[i];
-      p.x -= pipeSpeed * 1.1;
+      p.x -= pipeSpeed * factor * 1.05;
 
       if (!p.passed && p.x + pipeWidth < player.x) {
         p.passed = true;
@@ -255,15 +343,10 @@ function update(dt) {
         scoreEl.textContent = score.toString();
       }
 
-      if (p.x + pipeWidth < -40) pipes.splice(i, 1);
+      if (p.x + pipeWidth < -50) pipes.splice(i, 1);
     }
 
-    // collisions with floor/ceiling
-    if (player.y + player.height > canvas.height || player.y < -40) {
-      setGameOver();
-    }
-
-    // collisions with pipes (touch anything = lose)
+    // collisions (touch ANY pipe)
     for (const p of pipes) {
       const topRect = { x: p.x, y: 0, w: pipeWidth, h: p.topHeight };
       const bottomY = p.topHeight + pipeGap;
@@ -281,7 +364,7 @@ function update(dt) {
     }
 
     addTrail();
-    updateTrail();
+    updateTrail(dt);
   }
 }
 
@@ -297,6 +380,7 @@ function rectOverlap(a, r) {
 function setGameOver() {
   if (gameState !== "playing") return;
   gameState = "over";
+  createBurst();
   messageEl.textContent = "GAME OVER — TAP TO RESTART";
 }
 
@@ -351,9 +435,10 @@ function drawSteelPipe(x, y, w, h) {
   ctx.fillRect(x - 4, y - rimHeight / 2, w + 8, rimHeight);
 }
 
-function render() {
+function render(timestamp) {
   drawBackground();
   drawStars();
+  drawBurst();
 
   // pipes
   for (const p of pipes) {
@@ -362,19 +447,22 @@ function render() {
     drawSteelPipe(p.x, bottomY, pipeWidth, canvas.height - bottomY);
   }
 
-  // trail
-  drawTrail();
+  // chrome trail
+  drawTrail(timestamp || 0);
 
-  // player logo (no glowing ball)
+  // player
   if (playerImg.complete && playerImg.naturalWidth > 0) {
-    const tilt = Math.max(-0.35, Math.min(0.35, -player.vy * 0.04));
+    const verticalVel = player.y - lastPlayerY;
+    lastPlayerY = player.y;
+    const tilt = Math.max(-0.3, Math.min(0.3, -verticalVel * 0.06));
+
     const cx = player.x + player.width / 2;
     const cy = player.y + player.height / 2;
 
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(tilt);
-    ctx.imageSmoothingEnabled = false; // keep pixels crisp
+    ctx.imageSmoothingEnabled = false;
     ctx.drawImage(
       playerImg,
       -player.width / 2,
@@ -391,6 +479,7 @@ playerImg.onload = () => {
   resetPlayerPosition();
   resetPipeParams();
   initStars();
+  seedPipes();
   startNewGame();
 };
 
