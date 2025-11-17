@@ -1,13 +1,57 @@
-body {
-    margin: 0;
-    overflow: hidden;
-    background: #000;
-    font-family: Arial, sans-serif;
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-canvas {
-    display: block;
-    margin: 0 auto;
-    background: url('../drillions-bg.png');
-    background-size: cover;
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Segoe UI", sans-serif;
+}
+
+/* Full-screen canvas */
+#gameCanvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* HUD (score + message overlay) */
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 16px;
+}
+
+#score {
+  font-size: 32px;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 10px rgba(0, 200, 255, 0.7);
+}
+
+#message {
+  margin-top: 12px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  opacity: 0.85;
+}
+
+/* Chrome gradient text */
+#score,
+#message {
+  background: linear-gradient(120deg, #e5f7ff, #7cc8ff, #ffffff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }

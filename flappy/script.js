@@ -1,133 +1,333 @@
-// CANVAS
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+const scoreEl = document.getElementById("score");
+const messageEl = document.getElementById("message");
 
-// PLAYER
+// --------------------- SIZING ---------------------
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+
+// --------------------- PLAYER (DRILLIONS LOGO) ---------------------
+const playerImg = new Image();
+playerImg.src = "../assets/drillions_logo.png";
+
 const player = {
-    x: 80,
-    y: canvas.height / 2,
-    width: 40,
-    height: 40,
-    gravity: 3,
-    lift: -25,
-    velocity: 0
+  x: 0,
+  y: 0,
+  width: 0,
+  height: 0,
+  vy: 0
 };
 
-// PIPE SETTINGS
+function resetPlayerPosition() {
+  const baseWidth = Math.min(canvas.width * 0.45, 260); // keep logo readable
+  const aspect = 0.28; // wordmark is wider than tall
+  player.width = baseWidth;
+  player.height = baseWidth * aspect;
+  player.x = canvas.width * 0.2;
+  player.y = canvas.height * 0.45;
+  player.vy = 0;
+}
+
+// Physics
+let gravity = 0.45;
+let flapStrength = -9;
+let maxFallSpeed = 14;
+
+// --------------------- PIPES ---------------------
 let pipes = [];
-let pipeGap = 230;
-let pipeWidth = 80;
-let pipeSpeed = 5;
+let pipeGap;
+let pipeWidth;
+let pipeSpeed;
+let spawnInterval = 1500;
+let lastSpawn = 0;
 
-// SCORE
+function resetPipeParams() {
+  pipeGap = canvas.height * 0.3; // gap between pipes
+  pipeWidth = Math.max(60, canvas.width * 0.16);
+  pipeSpeed = Math.max(3.5, canvas.width * 0.004);
+}
+
+function spawnPipe() {
+  const margin = 60;
+  const maxTop = canvas.height - pipeGap - margin;
+  const topHeight =
+    margin + Math.random() * Math.max(40, maxTop - margin);
+
+  pipes.push({
+    x: canvas.width,
+    topHeight,
+    passed: false
+  });
+}
+
+// --------------------- GAME STATE ---------------------
 let score = 0;
+let lastTime = 0;
+let gameState = "loading"; // loading | ready | playing | over
 
-// COLOR (DRILLIONS ENERGY BLUE)
-const drillColor = "#55ccff";
-
-// CREATE PIPES EVERY 1.5 SECONDS
-setInterval(() => {
-    let topHeight = Math.random() * (canvas.height - pipeGap - 200) + 50;
-    let bottomY = topHeight + pipeGap;
-
-    pipes.push({
-        x: canvas.width,
-        topHeight: topHeight,
-        bottomY: bottomY
-    });
-}, 1500);
-
-// GAME LOOP
-function update() {
-    // Gravity
-    player.velocity += player.gravity;
-    player.y += player.velocity;
-
-    // Prevent falling below screen
-    if (player.y + player.height > canvas.height) {
-        player.y = canvas.height - player.height;
-        player.velocity = 0;
-    }
-
-    // PIPE MOVEMENT
-    pipes.forEach(pipe => {
-        pipe.x -= pipeSpeed;
-
-        // Passed pipe → +1 score
-        if (pipe.x + pipeWidth < player.x && !pipe.passed) {
-            pipe.passed = true;
-            score++;
-            console.log("Score:", score);
-        }
-
-        // Collision top
-        if (player.x < pipe.x + pipeWidth &&
-            player.x + player.width > pipe.x &&
-            player.y < pipe.topHeight) {
-            resetGame();
-        }
-
-        // Collision bottom
-        if (player.x < pipe.x + pipeWidth &&
-            player.x + player.width > pipe.x &&
-            player.y + player.height > pipe.bottomY) {
-            resetGame();
-        }
-    });
-
-    // Remove off-screen pipes
-    pipes = pipes.filter(pipe => pipe.x + pipeWidth > 0);
-
-    draw();
-    requestAnimationFrame(update);
+function startNewGame() {
+  score = 0;
+  scoreEl.textContent = "0";
+  pipes = [];
+  resetPipeParams();
+  resetPlayerPosition();
+  lastSpawn = 0;
+  lastTime = 0;
+  gameState = "ready";
+  messageEl.textContent = "TAP TO START";
 }
 
-// DRAW EVERYTHING
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+// --------------------- INPUT ---------------------
+function flap() {
+  if (gameState === "loading") return;
 
-    // Pipes
-    pipes.forEach(pipe => {
-        ctx.fillStyle = drillColor;
+  if (gameState === "ready") {
+    gameState = "playing";
+    messageEl.textContent = "";
+  } else if (gameState === "over") {
+    startNewGame();
+    return;
+  }
 
-        // Top pipe
-        ctx.fillRect(pipe.x, 0, pipeWidth, pipe.topHeight);
-
-        // Bottom pipe
-        ctx.fillRect(pipe.x, pipe.bottomY, pipeWidth, canvas.height - pipe.bottomY);
-    });
-
-    // Player (blue glowing square for now)
-    ctx.fillStyle = "#00aaff";
-    ctx.fillRect(player.x, player.y, player.width, player.height);
-
-    // Score
-    ctx.fillStyle = "#fff";
-    ctx.font = "40px Arial";
-    ctx.fillText(score, 30, 50);
+  player.vy = flapStrength;
 }
 
-// TAP / SPACE / CLICK → JUMP
-window.addEventListener("mousedown", jump);
-window.addEventListener("touchstart", jump);
-window.addEventListener("keydown", e => {
-    if (e.code === "Space") jump();
+function handlePointer(e) {
+  e.preventDefault();
+  flap();
+}
+
+window.addEventListener("touchstart", handlePointer, { passive: false });
+window.addEventListener("mousedown", handlePointer);
+
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space" || e.code === "ArrowUp") {
+    e.preventDefault();
+    flap();
+  }
 });
 
-function jump() {
-    player.velocity = player.lift;
+// --------------------- MAIN LOOP ---------------------
+function loop(timestamp) {
+  if (!lastTime) lastTime = timestamp;
+  const dt = timestamp - lastTime;
+  lastTime = timestamp;
+
+  update(dt);
+  render();
+
+  requestAnimationFrame(loop);
 }
 
-// RESET GAME
-function resetGame() {
-    pipes = [];
-    score = 0;
-    player.y = canvas.height / 2;
-    player.velocity = 0;
+function update(dt) {
+  if (gameState === "loading" || gameState === "ready") return;
+
+  if (gameState === "playing") {
+    // gravity
+    player.vy += gravity;
+    if (player.vy > maxFallSpeed) player.vy = maxFallSpeed;
+    player.y += player.vy;
+
+    // spawn pipes
+    lastSpawn += dt;
+    if (lastSpawn > spawnInterval) {
+      spawnPipe();
+      lastSpawn = 0;
+    }
+
+    // move & handle pipes
+    for (let i = pipes.length - 1; i >= 0; i--) {
+      const p = pipes[i];
+      p.x -= pipeSpeed;
+
+      // scoring
+      if (!p.passed && p.x + pipeWidth < player.x) {
+        p.passed = true;
+        score++;
+        scoreEl.textContent = String(score);
+      }
+
+      // remove offscreen
+      if (p.x + pipeWidth < -10) {
+        pipes.splice(i, 1);
+      }
+    }
+
+    // collision with floor / ceiling
+    if (
+      player.y + player.height > canvas.height ||
+      player.y + player.height < 0
+    ) {
+      setGameOver();
+    }
+
+    // collision with pipes
+    for (const p of pipes) {
+      const topRect = {
+        x: p.x,
+        y: 0,
+        w: pipeWidth,
+        h: p.topHeight
+      };
+      const bottomRect = {
+        x: p.x,
+        y: p.topHeight + pipeGap,
+        w: pipeWidth,
+        h: canvas.height - (p.topHeight + pipeGap)
+      };
+
+      if (rectOverlap(player, topRect) || rectOverlap(player, bottomRect)) {
+        setGameOver();
+        break;
+      }
+    }
+  }
 }
 
-// START LOOP
-update();
+function rectOverlap(a, r) {
+  return (
+    a.x < r.x + r.w &&
+    a.x + a.width > r.x &&
+    a.y < r.y + r.h &&
+    a.y + a.height > r.y
+  );
+}
+
+function setGameOver() {
+  if (gameState !== "playing") return;
+  gameState = "over";
+  messageEl.textContent = "GAME OVER — TAP TO RESTART";
+}
+
+// --------------------- RENDER ---------------------
+function drawBackground() {
+  const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  grad.addColorStop(0, "#05070d");
+  grad.addColorStop(0.4, "#101722");
+  grad.addColorStop(0.8, "#04060a");
+  grad.addColorStop(1, "#000000");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // subtle diagonal lines to feel like a steel wall
+  ctx.save();
+  ctx.globalAlpha = 0.15;
+  ctx.lineWidth = 1;
+  for (let i = -canvas.height; i < canvas.width + canvas.height; i += 80) {
+    ctx.beginPath();
+    ctx.moveTo(i, 0);
+    ctx.lineTo(i + canvas.height, canvas.height);
+    ctx.strokeStyle = "rgba(120,150,180,0.4)";
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawSteelPipe(x, y, w, h) {
+  const pipeGrad = ctx.createLinearGradient(x, y, x + w, y + h);
+  pipeGrad.addColorStop(0, "#f4f7fb");
+  pipeGrad.addColorStop(0.25, "#c5cdd8");
+  pipeGrad.addColorStop(0.5, "#ffffff");
+  pipeGrad.addColorStop(0.75, "#9199a4");
+  pipeGrad.addColorStop(1, "#dfe6f1");
+
+  ctx.fillStyle = pipeGrad;
+  ctx.fillRect(x, y, w, h);
+
+  // edges
+  ctx.strokeStyle = "rgba(255,255,255,0.9)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+
+  // inner shadow
+  ctx.strokeStyle = "rgba(0,0,0,0.35)";
+  ctx.strokeRect(x + 3, y + 3, w - 6, h - 6);
+
+  // Mario-style rim on top
+  const rimHeight = Math.min(20, h * 0.18);
+  const rimGrad = ctx.createLinearGradient(
+    x,
+    y,
+    x,
+    y + rimHeight
+  );
+  rimGrad.addColorStop(0, "#ffffff");
+  rimGrad.addColorStop(0.4, "#d7dfea");
+  rimGrad.addColorStop(1, "#a3acb8");
+  ctx.fillStyle = rimGrad;
+  ctx.fillRect(x - 4, y - rimHeight / 2, w + 8, rimHeight);
+}
+
+function render() {
+  drawBackground();
+
+  // pipes
+  for (const p of pipes) {
+    drawSteelPipe(p.x, 0, pipeWidth, p.topHeight);
+    const bottomY = p.topHeight + pipeGap;
+    drawSteelPipe(p.x, bottomY, pipeWidth, canvas.height - bottomY);
+  }
+
+  // player (Drillions logo)
+  if (playerImg.complete && playerImg.naturalWidth > 0) {
+    // slight tilt based on velocity
+    const tilt = Math.max(-0.35, Math.min(0.35, -player.vy * 0.04));
+    const cx = player.x + player.width / 2;
+    const cy = player.y + player.height / 2;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(tilt);
+
+    // glow behind logo
+    const glowGrad = ctx.createRadialGradient(
+      0,
+      0,
+      player.width * 0.1,
+      0,
+      0,
+      player.width * 0.7
+    );
+    glowGrad.addColorStop(0, "rgba(120,200,255,0.6)");
+    glowGrad.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = glowGrad;
+    ctx.fillRect(
+      -player.width / 1.2,
+      -player.height * 1.4,
+      player.width * 2.4,
+      player.height * 3
+    );
+
+    ctx.globalAlpha = 1;
+    ctx.drawImage(
+      playerImg,
+      -player.width / 2,
+      -player.height / 2,
+      player.width,
+      player.height
+    );
+
+    ctx.restore();
+  } else {
+    // fallback rectangle
+    ctx.fillStyle = "#55ccff";
+    ctx.fillRect(player.x, player.y, player.width, player.height);
+  }
+}
+
+// --------------------- INIT ---------------------
+playerImg.onload = () => {
+  resetPlayerPosition();
+  resetPipeParams();
+  gameState = "ready";
+  messageEl.textContent = "TAP TO START";
+};
+
+startNewGame();
+requestAnimationFrame(loop);
