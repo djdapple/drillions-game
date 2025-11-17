@@ -30,7 +30,7 @@ html, body {
 #score {
   font-size: 34px;
   font-weight: 600;
-  background: linear-gradient(120deg, #fff, #9fd8ff, #e6f7ff);
+  background: linear-gradient(120deg, #ffffff, #9fd8ff, #e6f7ff);
   -webkit-background-clip: text;
   color: transparent;
   text-shadow: 0 0 10px rgba(120,200,255,0.4);
@@ -41,7 +41,7 @@ html, body {
   font-size: 13px;
   letter-spacing: 0.15em;
   opacity: 0.8;
-  background: linear-gradient(120deg, #fff, #8bcaff, #ffffff);
+  background: linear-gradient(120deg, #ffffff, #8bcaff, #ffffff);
   -webkit-background-clip: text;
   color: transparent;
 }
