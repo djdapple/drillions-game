@@ -4,7 +4,6 @@ const ctx = canvas.getContext("2d");
 const scoreEl = document.getElementById("score");
 const messageEl = document.getElementById("message");
 
-// --------------------- SIZING ---------------------
 function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
@@ -12,7 +11,7 @@ function resizeCanvas() {
 resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
 
-// --------------------- PLAYER (DRILLIONS LOGO) ---------------------
+// ---------------------- PLAYER (DRILLIONS LOGO) ----------------------
 const playerImg = new Image();
 playerImg.src = "../assets/drillions_logo.png";
 
@@ -25,8 +24,9 @@ const player = {
 };
 
 function resetPlayerPosition() {
-  const baseWidth = Math.min(canvas.width * 0.45, 260); // keep logo readable
-  const aspect = 0.28; // wordmark is wider than tall
+  const baseWidth = Math.min(canvas.width * 0.28, 180);
+  const aspect = 0.28;
+
   player.width = baseWidth;
   player.height = baseWidth * aspect;
   player.x = canvas.width * 0.2;
@@ -34,30 +34,26 @@ function resetPlayerPosition() {
   player.vy = 0;
 }
 
-// Physics
 let gravity = 0.45;
 let flapStrength = -9;
 let maxFallSpeed = 14;
 
-// --------------------- PIPES ---------------------
+// ---------------------- PIPES ----------------------
 let pipes = [];
-let pipeGap;
-let pipeWidth;
-let pipeSpeed;
+let pipeGap, pipeWidth, pipeSpeed;
 let spawnInterval = 1500;
 let lastSpawn = 0;
 
 function resetPipeParams() {
-  pipeGap = canvas.height * 0.3; // gap between pipes
-  pipeWidth = Math.max(60, canvas.width * 0.16);
-  pipeSpeed = Math.max(3.5, canvas.width * 0.004);
+  pipeGap = canvas.height * 0.38;
+  pipeWidth = Math.max(40, canvas.width * 0.10);
+  pipeSpeed = Math.max(2.8, canvas.width * 0.003);
 }
 
 function spawnPipe() {
   const margin = 60;
   const maxTop = canvas.height - pipeGap - margin;
-  const topHeight =
-    margin + Math.random() * Math.max(40, maxTop - margin);
+  const topHeight = margin + Math.random() * (maxTop - margin);
 
   pipes.push({
     x: canvas.width,
@@ -66,10 +62,42 @@ function spawnPipe() {
   });
 }
 
-// --------------------- GAME STATE ---------------------
+// ---------------------- TRAIL ----------------------
+let trail = [];
+
+function addTrail() {
+  trail.push({
+    x: player.x + player.width / 2,
+    y: player.y + player.height / 2,
+    opacity: 1,
+    size: player.width * 0.6
+  });
+}
+
+function updateTrail() {
+  for (let i = trail.length - 1; i >= 0; i--) {
+    trail[i].opacity -= 0.03;
+    trail[i].size *= 0.97;
+    if (trail[i].opacity <= 0) trail.splice(i, 1);
+  }
+}
+
+function drawTrail() {
+  for (const t of trail) {
+    const g = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, t.size);
+    g.addColorStop(0, `rgba(150,200,255,${t.opacity})`);
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, t.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// ---------------------- GAME STATE ----------------------
 let score = 0;
 let lastTime = 0;
-let gameState = "loading"; // loading | ready | playing | over
+let gameState = "loading";
 
 function startNewGame() {
   score = 0;
@@ -77,13 +105,14 @@ function startNewGame() {
   pipes = [];
   resetPipeParams();
   resetPlayerPosition();
+  trail = [];
   lastSpawn = 0;
   lastTime = 0;
   gameState = "ready";
   messageEl.textContent = "TAP TO START";
 }
 
-// --------------------- INPUT ---------------------
+// ---------------------- INPUT ----------------------
 function flap() {
   if (gameState === "loading") return;
 
@@ -94,26 +123,16 @@ function flap() {
     startNewGame();
     return;
   }
-
   player.vy = flapStrength;
 }
 
-function handlePointer(e) {
-  e.preventDefault();
-  flap();
-}
-
-window.addEventListener("touchstart", handlePointer, { passive: false });
-window.addEventListener("mousedown", handlePointer);
-
+window.addEventListener("touchstart", flap, { passive: false });
+window.addEventListener("mousedown", flap);
 window.addEventListener("keydown", (e) => {
-  if (e.code === "Space" || e.code === "ArrowUp") {
-    e.preventDefault();
-    flap();
-  }
+  if (["Space", "ArrowUp"].includes(e.code)) flap();
 });
 
-// --------------------- MAIN LOOP ---------------------
+// ---------------------- LOOP ----------------------
 function loop(timestamp) {
   if (!lastTime) lastTime = timestamp;
   const dt = timestamp - lastTime;
@@ -129,57 +148,48 @@ function update(dt) {
   if (gameState === "loading" || gameState === "ready") return;
 
   if (gameState === "playing") {
-    // gravity
+    // physics
     player.vy += gravity;
     if (player.vy > maxFallSpeed) player.vy = maxFallSpeed;
     player.y += player.vy;
 
-    // spawn pipes
+    // spawn
     lastSpawn += dt;
     if (lastSpawn > spawnInterval) {
       spawnPipe();
       lastSpawn = 0;
     }
 
-    // move & handle pipes
+    // move pipes
     for (let i = pipes.length - 1; i >= 0; i--) {
       const p = pipes[i];
-      p.x -= pipeSpeed;
+      p.x -= pipeSpeed * 1.1;
 
-      // scoring
       if (!p.passed && p.x + pipeWidth < player.x) {
         p.passed = true;
         score++;
-        scoreEl.textContent = String(score);
+        scoreEl.textContent = score.toString();
       }
 
-      // remove offscreen
-      if (p.x + pipeWidth < -10) {
-        pipes.splice(i, 1);
-      }
+      if (p.x + pipeWidth < -20) pipes.splice(i, 1);
     }
 
-    // collision with floor / ceiling
+    // collisions
     if (
       player.y + player.height > canvas.height ||
-      player.y + player.height < 0
+      player.y < -20
     ) {
       setGameOver();
     }
 
-    // collision with pipes
     for (const p of pipes) {
-      const topRect = {
-        x: p.x,
-        y: 0,
-        w: pipeWidth,
-        h: p.topHeight
-      };
+      const topRect = { x: p.x, y: 0, w: pipeWidth, h: p.topHeight };
+      const bottomY = p.topHeight + pipeGap;
       const bottomRect = {
         x: p.x,
-        y: p.topHeight + pipeGap,
+        y: bottomY,
         w: pipeWidth,
-        h: canvas.height - (p.topHeight + pipeGap)
+        h: canvas.height - bottomY
       };
 
       if (rectOverlap(player, topRect) || rectOverlap(player, bottomRect)) {
@@ -187,15 +197,18 @@ function update(dt) {
         break;
       }
     }
+
+    addTrail();
+    updateTrail();
   }
 }
 
 function rectOverlap(a, r) {
-  return (
-    a.x < r.x + r.w &&
-    a.x + a.width > r.x &&
-    a.y < r.y + r.h &&
-    a.y + a.height > r.y
+  return !(
+    a.x + a.width < r.x ||
+    a.x > r.x + r.w ||
+    a.y + a.height < r.y ||
+    a.y > r.y + r.h
   );
 }
 
@@ -205,19 +218,18 @@ function setGameOver() {
   messageEl.textContent = "GAME OVER — TAP TO RESTART";
 }
 
-// --------------------- RENDER ---------------------
+// ---------------------- RENDER ----------------------
 function drawBackground() {
-  const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-  grad.addColorStop(0, "#05070d");
-  grad.addColorStop(0.4, "#101722");
-  grad.addColorStop(0.8, "#04060a");
-  grad.addColorStop(1, "#000000");
-  ctx.fillStyle = grad;
+  const g = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  g.addColorStop(0, "#06080f");
+  g.addColorStop(0.5, "#0d1420");
+  g.addColorStop(1, "#020305");
+  ctx.fillStyle = g;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // subtle diagonal lines to feel like a steel wall
+  // diagonal lines
   ctx.save();
-  ctx.globalAlpha = 0.15;
+  ctx.globalAlpha = 0.14;
   ctx.lineWidth = 1;
   for (let i = -canvas.height; i < canvas.width + canvas.height; i += 80) {
     ctx.beginPath();
@@ -230,36 +242,29 @@ function drawBackground() {
 }
 
 function drawSteelPipe(x, y, w, h) {
-  const pipeGrad = ctx.createLinearGradient(x, y, x + w, y + h);
-  pipeGrad.addColorStop(0, "#f4f7fb");
-  pipeGrad.addColorStop(0.25, "#c5cdd8");
-  pipeGrad.addColorStop(0.5, "#ffffff");
-  pipeGrad.addColorStop(0.75, "#9199a4");
-  pipeGrad.addColorStop(1, "#dfe6f1");
+  const grad = ctx.createLinearGradient(x, y, x + w, y + h);
+  grad.addColorStop(0, "#f6f8fc");
+  grad.addColorStop(0.25, "#d1d7df");
+  grad.addColorStop(0.5, "#ffffff");
+  grad.addColorStop(0.75, "#9aa2b1");
+  grad.addColorStop(1, "#e2e8f0");
 
-  ctx.fillStyle = pipeGrad;
+  ctx.fillStyle = grad;
   ctx.fillRect(x, y, w, h);
 
-  // edges
   ctx.strokeStyle = "rgba(255,255,255,0.9)";
   ctx.lineWidth = 2;
   ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
 
-  // inner shadow
   ctx.strokeStyle = "rgba(0,0,0,0.35)";
   ctx.strokeRect(x + 3, y + 3, w - 6, h - 6);
 
-  // Mario-style rim on top
   const rimHeight = Math.min(20, h * 0.18);
-  const rimGrad = ctx.createLinearGradient(
-    x,
-    y,
-    x,
-    y + rimHeight
-  );
+  const rimGrad = ctx.createLinearGradient(x, y, x, y + rimHeight);
   rimGrad.addColorStop(0, "#ffffff");
   rimGrad.addColorStop(0.4, "#d7dfea");
   rimGrad.addColorStop(1, "#a3acb8");
+
   ctx.fillStyle = rimGrad;
   ctx.fillRect(x - 4, y - rimHeight / 2, w + 8, rimHeight);
 }
@@ -267,16 +272,16 @@ function drawSteelPipe(x, y, w, h) {
 function render() {
   drawBackground();
 
-  // pipes
   for (const p of pipes) {
     drawSteelPipe(p.x, 0, pipeWidth, p.topHeight);
+
     const bottomY = p.topHeight + pipeGap;
     drawSteelPipe(p.x, bottomY, pipeWidth, canvas.height - bottomY);
   }
 
-  // player (Drillions logo)
+  drawTrail();
+
   if (playerImg.complete && playerImg.naturalWidth > 0) {
-    // slight tilt based on velocity
     const tilt = Math.max(-0.35, Math.min(0.35, -player.vy * 0.04));
     const cx = player.x + player.width / 2;
     const cy = player.y + player.height / 2;
@@ -284,27 +289,6 @@ function render() {
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(tilt);
-
-    // glow behind logo
-    const glowGrad = ctx.createRadialGradient(
-      0,
-      0,
-      player.width * 0.1,
-      0,
-      0,
-      player.width * 0.7
-    );
-    glowGrad.addColorStop(0, "rgba(120,200,255,0.6)");
-    glowGrad.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = glowGrad;
-    ctx.fillRect(
-      -player.width / 1.2,
-      -player.height * 1.4,
-      player.width * 2.4,
-      player.height * 3
-    );
-
-    ctx.globalAlpha = 1;
     ctx.drawImage(
       playerImg,
       -player.width / 2,
@@ -312,16 +296,11 @@ function render() {
       player.width,
       player.height
     );
-
     ctx.restore();
-  } else {
-    // fallback rectangle
-    ctx.fillStyle = "#55ccff";
-    ctx.fillRect(player.x, player.y, player.width, player.height);
   }
 }
 
-// --------------------- INIT ---------------------
+// ---------------------- INIT ----------------------
 playerImg.onload = () => {
   resetPlayerPosition();
   resetPipeParams();
