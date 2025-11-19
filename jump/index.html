@@ -1,14 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>DRILLIONS JUMP — PROTOTYPE</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8" />
+<title>DRILLIONS JUMP — PROTOTYPE</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #000;
+    overflow: hidden;
+    touch-action: none;
+  }
+  canvas {
+    display: block;
+  }
+</style>
 </head>
+
 <body>
+  <!-- REQUIRED OR GAME IS BLACK -->
+  <canvas id="gameCanvas"></canvas>
 
-<canvas id="game"></canvas>
-
-<script src="script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
