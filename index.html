@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>DRILLIONS – CHROME ASTEROIDS</title>
+  <title>DRILLIONS – MINI ARCADE</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -114,7 +114,7 @@
 <!-- 🔵 GAME SELECT OVERLAY -->
 <div id="selector-screen">
   <div class="select-title">DRILLIONS MINI-ARCADE</div>
-  <div class="select-subtitle">CHOOSE YOUR GAME</div>
+  <div class="select-subtitle">CHOOSE YOUR WORLD</div>
 
   <div class="select-row">
     <!-- ASTEROIDS CARD -->
@@ -125,14 +125,14 @@
 
     <!-- FLAPPY CARD -->
     <div class="select-card" onclick="goFlappy()">
-      <div class="select-tag">NEW</div>
+      <div class="select-tag">ARCADE</div>
       <div class="select-label">FLAPPY</div>
     </div>
 
-    <!-- JUMP CARD -->
-    <div class="select-card" onclick="goJump()">
-      <div class="select-tag">PROTO</div>
-      <div class="select-label">JUMP</div>
+    <!-- LETTERS (PENPAL APP) CARD -->
+    <div class="select-card" onclick="goLetters()">
+      <div class="select-tag">SOCIAL</div>
+      <div class="select-label">LETTERS</div>
     </div>
   </div>
 </div>
@@ -157,13 +157,13 @@ function goFlappy() {
   window.location.href = "flappy/";
 }
 
-function goJump() {
-  // jump folder is a sibling of this index.html
-  window.location.href = "jump/";
+function goLetters() {
+  // letters (penpal app) folder
+  window.location.href = "letters/";
 }
 
 // ----------------------------------------------------
-// Canvas Setup
+// Canvas Setup (Asteroids)
 // ----------------------------------------------------
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
