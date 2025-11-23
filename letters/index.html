@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>DRILLIONS LETTERS – Penpal App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- LEFT PANEL / HERO -->
+    <section class="hero">
+      <div class="hero-inner">
+        <div class="logo-chip">DRILLIONS</div>
+        <h1 class="hero-title">LETTERS</h1>
+        <p class="hero-tagline">
+          Slow, anonymous penpal letters for people who still believe in long-form thoughts.
+        </p>
+
+        <div class="hero-pill">
+          <span class="dot"></span>
+          One letter at a time. No feed. No noise.
+        </div>
+
+        <div class="hero-modes">
+          <button class="mode-btn active" id="mode-anon">
+            Anonymous
+          </button>
+          <button class="mode-btn" id="mode-reveal">
+            Reveal after 7 letters
+          </button>
+        </div>
+
+        <div class="hero-footnote">
+          Your penpal’s real profile only unlocks after you’ve traded a streak of letters.
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL / MAILBOX -->
+    <section class="mailbox">
+      <header class="mailbox-header">
+        <div class="mailbox-title">
+          <span class="pill online"></span>
+          Your Mailbox
+        </div>
+        <button class="primary" id="new-letter-btn">
+          ✉️ New Letter
+        </button>
+      </header>
+
+      <!-- THREAD LIST -->
+      <div class="threads" id="thread-list">
+        <!-- filled by JS -->
+      </div>
+
+      <!-- COMPOSE AREA -->
+      <div class="composer" id="composer">
+        <div class="composer-header">
+          <div class="penpal-label" id="penpal-label">Writing to: Random Stranger</div>
+          <div class="composer-mode-label" id="composer-mode-label">
+            Mode: Anonymous
+          </div>
+        </div>
+        <textarea
+          id="letter-text"
+          placeholder="Write something real. Your letter can’t be edited after you send it."
+        ></textarea>
+        <div class="composer-footer">
+          <span class="hint" id="cooldown-label">
+            You can send 1 letter every few minutes in this prototype.
+          </span>
+          <button class="primary" id="send-letter-btn">
+            Send Letter
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- TOAST / STATUS -->
+  <div id="toast"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
