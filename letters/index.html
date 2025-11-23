@@ -1,30 +1,102 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>DRILLIONS LETTERS — v2</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <title>DRILLIONS LETTERS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <link rel="stylesheet" href="style.css" />
 </head>
-
 <body>
+  <div class="bg-gradient"></div>
 
-<div id="app">
-  
-  <h1 class="title">📮 DRILLIONS LETTERS</h1>
-  <p class="subtitle">Write something for the world.</p>
+  <div class="app-shell">
+    <header class="top-bar">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <span class="brand-title">DRILLIONS LETTERS</span>
+      </div>
+      <div class="brand-sub">Write something for the world. Keep your soul anonymous.</div>
+    </header>
 
-  <!-- Writing Box -->
-  <textarea id="letterBox" placeholder="Write your letter here..."></textarea>
-  
-  <button id="sendBtn">Send Letter</button>
+    <main class="layout">
+      <!-- LEFT: WORLD LETTERS -->
+      <section class="panel panel-left">
+        <h2 class="panel-title">World Feed <span class="tag-clean">24H CLEAN</span></h2>
+        <p class="panel-caption">
+          Letters here are visible to everyone, but no names, no faces — only words.
+        </p>
 
-  <div id="feed"></div>
+        <form id="world-form" class="composer">
+          <textarea
+            id="world-input"
+            class="input-text"
+            rows="3"
+            maxlength="400"
+            placeholder="Write to the world… (400 characters max)"
+          ></textarea>
+          <div class="composer-footer">
+            <span id="world-count" class="char-count">0 / 400</span>
+            <button type="submit" class="btn btn-primary">Send to World</button>
+          </div>
+        </form>
 
-</div>
+        <div id="world-empty" class="empty-state">
+          No letters in the last 24 hours yet. Be the first one.
+        </div>
 
-<!-- Floating Sent Animation -->
-<div id="floatLetter">✉️</div>
+        <div id="world-list" class="feed"></div>
+      </section>
 
-<script src="script.js"></script>
+      <!-- RIGHT: PRIVATE PENPAL -->
+      <section class="panel panel-right">
+        <h2 class="panel-title">Secret Penpal</h2>
+        <p class="panel-caption">
+          Your profile stays hidden until you’ve written enough and time has passed.
+        </p>
+
+        <div class="profile-card">
+          <div class="profile-row">
+            <div class="avatar-circle" id="avatar-circle">✧</div>
+            <div>
+              <div class="profile-label">Status</div>
+              <div id="profile-status" class="profile-status">Hidden — Unknown</div>
+            </div>
+          </div>
+          <div class="progress-row">
+            <div class="progress-label">Unlock progress</div>
+            <div id="progress-text" class="progress-text">0 / 7 letters • 24h remaining</div>
+          </div>
+        </div>
+
+        <div id="thread-box" class="thread-box">
+          <div id="thread-empty" class="empty-state small">
+            Start a private letter below. This thread lives only on this device.
+          </div>
+          <div id="thread-list" class="thread-list"></div>
+        </div>
+
+        <form id="penpal-form" class="composer composer-tight">
+          <textarea
+            id="penpal-input"
+            class="input-text"
+            rows="3"
+            maxlength="500"
+            placeholder="Write a private letter…"
+          ></textarea>
+          <div class="composer-footer">
+            <span id="penpal-count" class="char-count">0 / 500</span>
+            <button type="submit" class="btn btn-outline">Send Secret Letter</button>
+          </div>
+        </form>
+
+        <p class="hint-text">
+          All identities here are generated on your device. No emails, real names, or photos are
+          stored. This is a vibe-only penpal.
+        </p>
+      </section>
+    </main>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
