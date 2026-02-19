@@ -29,7 +29,6 @@
       letter-spacing: 0.08em;
     }
 
-    /* ---------- DRILLIONS MINI-ARCADE SELECTOR ---------- */
     #selector-screen {
       position: fixed;
       inset: 0;
@@ -59,6 +58,8 @@
     .select-row {
       display: flex;
       gap: 22px;
+      flex-wrap: wrap;
+      justify-content: center;
     }
     .select-card {
       width: 140px;
@@ -111,51 +112,27 @@
 </head>
 <body>
 
-<!-- 🔵 GAME SELECT OVERLAY -->
 <div id="selector-screen">
   <div class="select-title">DRILLIONS MINI-ARCADE</div>
   <div class="select-subtitle">CHOOSE YOUR WORLD</div>
 
   <div class="select-row">
-    <!-- ASTEROIDS CARD -->
+
     <div class="select-card" onclick="startAsteroids()">
       <div class="select-tag">OG MODE</div>
       <div class="select-label">ASTEROIDS</div>
     </div>
 
-    <!-- FLAPPY CARD -->
     <div class="select-card" onclick="goFlappy()">
       <div class="select-tag">ARCADE</div>
       <div class="select-label">FLAPPY</div>
     </div>
 
-    <!-- LETTERS (PENPAL APP) CARD -->
-    <div class="select-card" onclick="goLetters()">
-      <!-- 🔵 GAME SELECT OVERLAY -->
-<div id="selector-screen">
-  <div class="select-title">DRILLIONS MINI-ARCADE</div>
-  <div class="select-subtitle">CHOOSE YOUR WORLD</div>
-
-  <div class="select-row">
-    <!-- ASTEROIDS CARD -->
-    <div class="select-card" onclick="startAsteroids()">
-      <div class="select-tag">OG MODE</div>
-      <div class="select-label">ASTEROIDS</div>
-    </div>
-
-    <!-- FLAPPY CARD -->
-    <div class="select-card" onclick="goFlappy()">
-      <div class="select-tag">ARCADE</div>
-      <div class="select-label">FLAPPY</div>
-    </div>
-
-    <!-- LETTERS CARD -->
     <div class="select-card" onclick="goLetters()">
       <div class="select-tag">SOCIAL</div>
       <div class="select-label">LETTERS</div>
     </div>
 
-    <!-- ⭐ LINKTREE CARD (NEW) -->
     <div class="select-card" onclick="goLinktree()">
       <div class="select-tag">HUB</div>
       <div class="select-label">LINKTREE</div>
@@ -163,43 +140,30 @@
 
   </div>
 </div>
-      <div class="select-tag">SOCIAL</div>
-      <div class="select-label">LETTERS</div>
-    </div>
-  </div>
-</div>
 
-<!-- 🔵 ASTEROIDS GAME WRAPPED (HIDDEN UNTIL CHOSEN) -->
 <div id="asteroids-container" style="display:none;">
   <div class="hud">DRILLIONS – CHROME MODE</div>
   <canvas id="gameCanvas"></canvas>
 </div>
 
 <script>
-// ----------------------------------------------------
-// Simple game selection
-// ----------------------------------------------------
 function startAsteroids() {
   document.getElementById("selector-screen").style.display = "none";
   document.getElementById("asteroids-container").style.display = "block";
 }
 
 function goFlappy() {
-  // flappy folder is a sibling of this index.html
   window.location.href = "flappy/";
 }
 
 function goLetters() {
-  // letters (penpal app) folder
   window.location.href = "letters/";
-  function goLinktree() {
-  window.open("https://linktr.ee/Drillions", "_blank");
-}
 }
 
-// ----------------------------------------------------
-// Canvas Setup (Asteroids)
-// ----------------------------------------------------
+function goLinktree() {
+  window.open("https://linktr.ee/Drillions", "_blank");
+}
+
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
@@ -211,24 +175,17 @@ function resize() {
 resize();
 window.addEventListener("resize", resize);
 
-// ----------------------------------------------------
-// Assets: Logo
-// ----------------------------------------------------
 const logo = new Image();
 logo.src = "drillions-pixel-logo.png?v=" + Date.now();
 let logoReady = false;
 logo.onload = () => { logoReady = true; };
 
-// ----------------------------------------------------
-// Assets: Sounds
-// ----------------------------------------------------
 let boostSfx   = new Audio("drillions_boost.wav");
 let hitSfx     = new Audio("drillions_hit.wav");
 let explodeSfx = new Audio("drillions_explode.wav");
 
 let audioUnlocked = false;
 
-// unlock audio on first touch gesture
 function unlockAudio() {
   if (audioUnlocked) return;
   audioUnlocked = true;
@@ -254,7 +211,6 @@ function unlockAudio() {
   });
 }
 
-// helper to safely play sounds without throwing
 function playSfx(sfx) {
   if (!audioUnlocked) return;
   try {
@@ -263,13 +219,10 @@ function playSfx(sfx) {
   } catch (e) {}
 }
 
-// ----------------------------------------------------
-// Player
-// ----------------------------------------------------
 const player = {
   x: 150,
   y: 150,
-  w: 260,   // slightly smaller than before for better feel
+  w: 260,
   h: 130,
   vx: 5,
   vy: 4,
@@ -279,18 +232,12 @@ const player = {
   maxSpeed: 13
 };
 
-// ----------------------------------------------------
-// Ghost Trail & Chrome Sparks
-// ----------------------------------------------------
 const ghostTrail = [];
 const MAX_GHOSTS = 6;
 
 const particles = [];
 const MAX_PARTICLES = 120;
 
-// ----------------------------------------------------
-// Starfield
-// ----------------------------------------------------
 const STAR_COUNT = 180;
 let stars = [];
 
@@ -327,9 +274,6 @@ function drawStars() {
   ctx.globalAlpha = 1.0;
 }
 
-// ----------------------------------------------------
-// Player Physics
-// ----------------------------------------------------
 let gameOver = false;
 
 function updatePlayer() {
@@ -355,7 +299,6 @@ function updatePlayer() {
   player.x += player.vx;
   player.y += player.vy;
 
-  // bounce off edges
   if (player.x <= 0 || player.x + player.w >= W) {
     player.vx *= -1;
   }
@@ -363,11 +306,9 @@ function updatePlayer() {
     player.vy *= -1;
   }
 
-  // clamp
   player.x = Math.max(0, Math.min(W - player.w, player.x));
   player.y = Math.max(0, Math.min(H - player.h, player.y));
 
-  // ghost trail
   ghostTrail.unshift({
     x: player.x + player.w / 2,
     y: player.y + player.h / 2
@@ -397,7 +338,6 @@ function drawGhostTrail() {
   }
 }
 
-// Chrome sparks
 function spawnTrailSparks() {
   const speed = Math.sqrt(player.vx * player.vx + player.vy * player.vy);
   const intensity = Math.min(1, speed / player.maxSpeed);
@@ -456,16 +396,12 @@ function drawParticles() {
   ctx.restore();
 }
 
-// ----------------------------------------------------
-// Asteroids + Explosion
-// ----------------------------------------------------
 const asteroids = [];
 const ASTEROID_SIZE = 46;
 const ASTEROID_SPEED = 2.4;
 
 let explosionParticles = [];
 
-// spawn asteroids from top
 setInterval(() => {
   if (gameOver) return;
   asteroids.push({
@@ -487,10 +423,8 @@ function drawAsteroids() {
   ctx.save();
   ctx.imageSmoothingEnabled = false;
   for (let a of asteroids) {
-    // dark outer square
     ctx.fillStyle = "#252525";
     ctx.fillRect(a.x, a.y, a.size, a.size);
-    // lighter inner square
     ctx.fillStyle = "#7a7a7a";
     ctx.fillRect(a.x + 7, a.y + 7, a.size - 14, a.size - 14);
   }
@@ -512,7 +446,6 @@ function checkAsteroidCollisions() {
       py < a.y + a.size &&
       py + ph > a.y
     ) {
-      // collision
       triggerExplosion(px + pw / 2, py + ph / 2);
       playSfx(hitSfx);
       playSfx(explodeSfx);
@@ -559,9 +492,6 @@ function drawExplosion() {
   ctx.restore();
 }
 
-// ----------------------------------------------------
-// Game Over Overlay
-// ----------------------------------------------------
 function drawGameOver() {
   if (!gameOver) return;
   ctx.save();
@@ -578,9 +508,6 @@ function drawGameOver() {
   ctx.restore();
 }
 
-// ----------------------------------------------------
-// Main Loop
-// ----------------------------------------------------
 function loop() {
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, W, H);
@@ -593,10 +520,7 @@ function loop() {
   drawGhostTrail();
   drawParticles();
 
-  if (logoReady && !gameOver) {
-    ctx.drawImage(logo, player.x, player.y, player.w, player.h);
-  } else if (logoReady && gameOver) {
-    // keep logo visible at final position under explosion
+  if (logoReady) {
     ctx.drawImage(logo, player.x, player.y, player.w, player.h);
   }
 
@@ -612,9 +536,6 @@ function loop() {
 }
 loop();
 
-// ----------------------------------------------------
-// Touch Controls (mobile)
-// ----------------------------------------------------
 canvas.addEventListener("touchstart", handleTouch);
 canvas.addEventListener("touchmove", handleTouch);
 
@@ -622,7 +543,6 @@ function handleTouch(e) {
   unlockAudio();
 
   if (gameOver) {
-    // restart whole page for clean reset
     location.reload();
     return;
   }
@@ -651,7 +571,6 @@ function accelerate(e) {
   player.vx += dx * player.tapAccel;
   player.vy += dy * player.tapAccel;
 
-  // little thruster sound
   playSfx(boostSfx);
 }
 </script>
